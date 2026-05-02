@@ -29,7 +29,8 @@ export interface TierConfig {
     handler?: ToolHandler;
   };
   premium: {
-    price: PriceSpec;
+    /** Postpaid is not supported in tiers; use a number or function. */
+    price: Exclude<PriceSpec, "postpaid">;
     handler?: ToolHandler;
   };
 }
@@ -38,7 +39,7 @@ export interface TierConfig {
 
 export type ToolHandler = (
   input: unknown,
-  ctx: ExecutionContext
+  ctx: ExecutionContext,
 ) => unknown | Promise<unknown>;
 
 export interface PaidToolConfig {
@@ -60,19 +61,33 @@ export interface PaidToolConfig {
 
   // ─── Lifecycle Hooks ───────────────────────────────────
   /** Runs before execution. Return false to abort. */
-  beforeExecute?: (input: unknown, ctx: ExecutionContext) => boolean | Promise<boolean>;
+  beforeExecute?: (
+    input: unknown,
+    ctx: ExecutionContext,
+  ) => boolean | Promise<boolean>;
   /** Runs after successful execution. Good for logging, metering. */
-  afterExecute?: (input: unknown, output: unknown, metrics: ExecutionMetrics) => void | Promise<void>;
+  afterExecute?: (
+    input: unknown,
+    output: unknown,
+    metrics: ExecutionMetrics,
+  ) => void | Promise<void>;
   /** Runs when the handler throws */
-  onFail?: (input: unknown, error: Error, ctx: ExecutionContext) => void | Promise<void>;
+  onFail?: (
+    input: unknown,
+    error: Error,
+    ctx: ExecutionContext,
+  ) => void | Promise<void>;
   /** Runs when payment cannot be collected */
-  onPaymentFail?: (input: unknown, reason: PaymentFailReason) => void | Promise<void>;
+  onPaymentFail?: (
+    input: unknown,
+    reason: PaymentFailReason,
+  ) => void | Promise<void>;
 
   /** Post-execution metering for "postpaid" pricing */
   meter?: (
     input: unknown,
     output: unknown,
-    metrics: ExecutionMetrics
+    metrics: ExecutionMetrics,
   ) => MeterResult | Promise<MeterResult>;
 }
 

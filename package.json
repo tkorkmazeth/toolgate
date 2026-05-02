@@ -1,21 +1,48 @@
 {
-  "name": "@toolgate/sdk",
-  "version": "0.1.0",
-  "description": "Runtime monetization engine for MCP tools",
+  "name": "toolgate",
+  "version": "0.1.0-alpha.1",
+  "description": "Monetize your MCP tools with usage-based payments — 5 lines of code, no proxy, full control.",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build": "tsc",
-    "test": "node --test src/__tests__/paidTool.test.mjs src/__tests__/mcp-adapter.test.mjs src/__tests__/stripe.test.mjs src/__tests__/webhook-handler.test.mjs src/__tests__/db-ledger.test.mjs"
+    "test": "node --test src/__tests__/paidTool.test.mjs src/__tests__/mcp-adapter.test.mjs src/__tests__/stripe.test.mjs src/__tests__/webhook-handler.test.mjs src/__tests__/db-ledger.test.mjs",
+    "prepublishOnly": "npm run build && npm test"
   },
   "keywords": [
     "mcp",
     "payments",
     "monetization",
     "ai-tools",
-    "stripe"
+    "stripe",
+    "agent",
+    "llm",
+    "model-context-protocol"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/toolgate/toolgate-sdk"
+  },
+  "homepage": "https://toolgate.dev",
+  "bugs": {
+    "url": "https://github.com/toolgate/toolgate-sdk/issues"
+  },
   "peerDependencies": {
     "stripe": ">=14.0.0"
   },
@@ -28,5 +55,5 @@
     "stripe": "^17.7.0",
     "typescript": "^5.4.0"
   },
-  "author": ""
+  "author": "Toolgate <hello@toolgate.dev>"
 }

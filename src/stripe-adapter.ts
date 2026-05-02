@@ -72,7 +72,7 @@ export class StripeAdapter {
     };
 
     this.stripe = new StripeLib(this.config.secretKey, {
-      apiVersion: "2025-04-30.basil",
+      apiVersion: "2025-02-24.acacia",
       // Narrow type footprint — Toolgate only needs these features.
       typescript: true,
     });

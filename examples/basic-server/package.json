@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "toolgate": "^0.1.0-alpha.1"
+    "@tkorkmaz/toolgate": "^0.1.0-alpha.1"
   },
   "devDependencies": {
     "ts-node": "^10.9.0",

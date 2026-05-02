@@ -1,5 +1,5 @@
 {
-  "name": "toolgate",
+  "name": "@tkorkmaz/toolgate",
   "version": "0.1.0-alpha.1",
   "description": "Monetize your MCP tools with usage-based payments — 5 lines of code, no proxy, full control.",
   "type": "module",
@@ -37,11 +37,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/toolgate/toolgate-sdk"
+    "url": "https://github.com/tkorkmazeth/toolgate"
   },
   "homepage": "https://toolgate.dev",
   "bugs": {
-    "url": "https://github.com/toolgate/toolgate-sdk/issues"
+    "url": "https://github.com/tkorkmazeth/toolgate/issues"
   },
   "peerDependencies": {
     "stripe": ">=14.0.0"

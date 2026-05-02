@@ -3,7 +3,7 @@
 Monetize your MCP tools with usage-based payments — 5 lines of code, no proxy, full control.
 
 ```
-npm install toolgate
+npm install @tkorkmaz/toolgate
 ```
 
 ---
@@ -13,7 +13,7 @@ npm install toolgate
 Works immediately with the built-in in-memory ledger — no Stripe account needed to test:
 
 ```typescript
-import { ToolGate } from "toolgate";
+import { ToolGate } from "@tkorkmaz/toolgate";
 
 const gate = new ToolGate({ publisherKey: "tg_test" });
 
@@ -172,13 +172,13 @@ const gate = new ToolGate({
 Use Toolgate with the official [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk):
 
 ```bash
-npm install toolgate @modelcontextprotocol/sdk
+npm install @tkorkmaz/toolgate @modelcontextprotocol/sdk
 ```
 
 ```typescript
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { ToolGate, createMcpAdapter } from "toolgate";
+import { ToolGate, createMcpAdapter } from "@tkorkmaz/toolgate";
 
 const gate = new ToolGate({ publisherKey: "tg_test" });
 const mcp = createMcpAdapter(gate);
@@ -260,7 +260,7 @@ Wire up real payments in 3 steps.
 ### Step 1 — Create a Checkout session when balance is low
 
 ```typescript
-import { StripeAdapter } from "toolgate";
+import { StripeAdapter } from "@tkorkmaz/toolgate";
 
 const stripe = new StripeAdapter({
   secretKey: process.env.STRIPE_SECRET_KEY!,
@@ -278,7 +278,7 @@ Top-up tiers: **$1 · $5 · $10 · $25** (auto-selects the smallest tier ≥ req
 ### Step 2 — Handle the webhook to credit balances
 
 ```typescript
-import { WebhookHandler } from "toolgate";
+import { WebhookHandler } from "@tkorkmaz/toolgate";
 
 const webhook = new WebhookHandler({
   stripeClient: stripe.client,
@@ -325,7 +325,7 @@ await stripe.payoutToPublisher(accountId, grossAmountCents);
 Swap `InMemoryLedger` for `DbLedger` — same API, persistent across restarts:
 
 ```typescript
-import { DbLedger, ToolGate } from "toolgate";
+import { DbLedger, ToolGate } from "@tkorkmaz/toolgate";
 
 // Run once on startup (idempotent — safe to call every time)
 await DbLedger.runMigrations(db); // db = Cloudflare D1 env.DB, Turso client, etc.

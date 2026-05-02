@@ -28,7 +28,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { ToolGate, createMcpAdapter } from "toolgate";
+import { ToolGate, createMcpAdapter } from "@tkorkmaz/toolgate";
 
 // ─── Toolgate setup ──────────────────────────────────────────
 

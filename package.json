@@ -1,0 +1,32 @@
+{
+  "name": "@toolgate/sdk",
+  "version": "0.1.0",
+  "description": "Runtime monetization engine for MCP tools",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test src/__tests__/paidTool.test.mjs src/__tests__/mcp-adapter.test.mjs src/__tests__/stripe.test.mjs src/__tests__/webhook-handler.test.mjs src/__tests__/db-ledger.test.mjs"
+  },
+  "keywords": [
+    "mcp",
+    "payments",
+    "monetization",
+    "ai-tools",
+    "stripe"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "stripe": ">=14.0.0"
+  },
+  "peerDependenciesMeta": {
+    "stripe": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "stripe": "^17.7.0",
+    "typescript": "^5.4.0"
+  },
+  "author": ""
+}

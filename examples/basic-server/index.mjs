@@ -43,7 +43,7 @@ const mcp = createMcpAdapter(gate, {
 });
 
 // Pre-load $1.00 demo balance so the server works out of the box.
-await gate.ledger.credit("demo-user", 1.00, {
+await gate.ledger.credit("demo-user", 1.0, {
   source: "manual",
   reference: "demo-preload",
 });
@@ -60,7 +60,7 @@ mcp.paidTool("premium_search", {
     required: ["query"],
   },
 
-  price: 0.05,   // $0.05 per call (static)
+  price: 0.05, // $0.05 per call (static)
 
   handler: async ({ query }) => {
     // Replace with your real search implementation.
@@ -91,14 +91,18 @@ const server = new McpServer({
 // check_balance — inspect current balance + recent transactions
 server.tool(
   "check_balance",
-  { caller_id: z.string().optional().describe("Caller ID (default: demo-user)") },
+  {
+    caller_id: z.string().optional().describe("Caller ID (default: demo-user)"),
+  },
   async ({ caller_id = "demo-user" }) => {
     const balance = await gate.ledger.getBalance(caller_id);
     return {
-      content: [{
-        type: "text",
-        text: JSON.stringify({ caller_id, balance_usd: balance }, null, 2),
-      }],
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({ caller_id, balance_usd: balance }, null, 2),
+        },
+      ],
     };
   },
 );
@@ -117,14 +121,20 @@ server.tool(
     });
     const balance = await gate.ledger.getBalance(caller_id);
     return {
-      content: [{
-        type: "text",
-        text: JSON.stringify({
-          added_usd: amount_usd,
-          new_balance_usd: balance,
-          note: "In production this is triggered by a Stripe webhook.",
-        }, null, 2),
-      }],
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              added_usd: amount_usd,
+              new_balance_usd: balance,
+              note: "In production this is triggered by a Stripe webhook.",
+            },
+            null,
+            2,
+          ),
+        },
+      ],
     };
   },
 );
@@ -136,4 +146,6 @@ mcp.registerAll(server);
 const transport = new StdioServerTransport();
 await server.connect(transport);
 
-process.stderr.write("[toolgate-basic] Server started. Pre-loaded $1.00 demo balance.\n");
+process.stderr.write(
+  "[toolgate-basic] Server started. Pre-loaded $1.00 demo balance.\n",
+);

@@ -1,6 +1,6 @@
 # Toolgate
 
-Monetize your MCP tools with usage-based payments — 5 lines of code, no proxy, full control.
+Billing-aware execution SDK for paid MCP tools — graceful fallback, post-execution metering, and programmable billing logic.
 
 ```
 npm install @tkorkmaz/toolgate
@@ -103,6 +103,60 @@ const research = gate.paidTool({
   onPaymentFailed: "fallback",
   handler: async (input) => deepAnalysis(input),
   fallback: async (input) => quickSummary(input), // runs when balance < $0.25
+});
+```
+
+### Execution Policy
+
+Programmatic control over *what happens* at the billing decision point — per call, per caller, per input:
+
+```typescript
+const search = gate.paidTool({
+  name: "premium_search",
+  price: 0.10,
+  handler: async (input) => deepSearch(input.query),
+  fallback: async (input) => quickSearch(input.query),
+
+  policy: {
+    decide: async ({ balance, tier, input, usageToday }) => {
+      if (tier === "free") return "execute";           // free tier always runs
+      if (balance >= 0.50) return "execute";           // well-funded → execute
+      if (balance > 0 && usageToday < 5) return "allow_once"; // grace period
+      if (balance === 0) return "fallback";            // no balance → degrade gracefully
+      return "payment_required";                       // otherwise block
+    },
+  },
+
+  // Track when fallback fires (for analytics)
+  onFallback: async (input, reason, ctx) => {
+    await analytics.track("fallback", { reason, callerId: ctx.callerId });
+  },
+});
+```
+
+**Policy decisions:**
+
+| Decision | Effect |
+|---|---|
+| `"execute"` | Normal paid execution |
+| `"fallback"` | Runs fallback handler without charging |
+| `"payment_required"` | Returns 402, even if balance > 0 |
+| `"allow_once"` | Executes free (grace period / trial) |
+| `"estimate"` | Returns a cost estimate without executing |
+
+Pair with a cost estimator for pre-flight transparency:
+
+```typescript
+const analyze = gate.paidTool({
+  name: "analyze",
+  price: (input) => input.tokens * 0.0001,
+  policy: { decide: async () => "estimate" },
+  estimate: async (input) => ({
+    estimatedPrice: input.tokens * 0.0001,
+    currency: "usd",
+    reason: `${input.tokens} tokens × $0.0001`,
+  }),
+  handler: async (input) => runAnalysis(input),
 });
 ```
 

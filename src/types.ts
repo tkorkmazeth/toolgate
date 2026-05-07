@@ -10,6 +10,13 @@ export interface ToolGateConfig {
   ledger?: LedgerAdapter;
   /** Event hooks for observability */
   hooks?: GlobalHooks;
+  /**
+   * Base URL for Stripe top-up redirect links included in 402 responses.
+   * The SDK appends `?publisher=...&caller=...&amount=...` to this URL.
+   * Must expose a GET endpoint that creates a Stripe Checkout and redirects.
+   * Defaults to the Toolgate hosted API.
+   */
+  topUpBaseUrl?: string;
 }
 
 export type PaymentRail = "stripe" | "x402" | "mpp";
@@ -89,6 +96,57 @@ export interface PaidToolConfig {
     output: unknown,
     metrics: ExecutionMetrics,
   ) => MeterResult | Promise<MeterResult>;
+
+  /** Execution policy — programmatic control over paid tool behavior */
+  policy?: ExecutionPolicy;
+
+  /**
+   * Cost estimator — returns estimated price before execution.
+   * Invoked when policy.decide() returns "estimate".
+   */
+  estimate?: (
+    input: unknown,
+    ctx: Omit<PolicyContext, "estimatedPrice">,
+  ) => CostEstimate | Promise<CostEstimate>;
+
+  /** Fires when fallback is triggered (for analytics/logging) */
+  onFallback?: (
+    input: unknown,
+    reason: PolicyDecision | "insufficient_balance",
+    ctx: ExecutionContext,
+  ) => void | Promise<void>;
+}
+
+// ─── Execution Policy ──────────────────────────────────────
+
+export interface ExecutionPolicy {
+  decide: (ctx: PolicyContext) => PolicyDecision | Promise<PolicyDecision>;
+}
+
+export type PolicyDecision =
+  | "execute"
+  | "fallback"
+  | "payment_required"
+  | "allow_once"
+  | "estimate";
+
+export interface PolicyContext {
+  callerId: string;
+  tier: "free" | "premium";
+  balance: number;
+  estimatedPrice: number;
+  input: unknown;
+  tool: string;
+  usageToday: number;
+  callerMeta?: Record<string, unknown>;
+}
+
+export interface CostEstimate {
+  estimatedPrice: number;
+  maxPrice?: number;
+  currency: string;
+  breakdown?: Record<string, number>;
+  reason?: string;
 }
 
 // ─── Execution Context & Metrics ───────────────────────────

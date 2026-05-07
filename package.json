@@ -1,7 +1,7 @@
 {
   "name": "@tkorkmaz/toolgate",
   "version": "0.1.0-alpha.1",
-  "description": "Monetize your MCP tools with usage-based payments — 5 lines of code, no proxy, full control.",
+  "description": "Billing-aware execution SDK for paid MCP tools — graceful fallback, post-execution metering, and programmable billing logic.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -27,9 +27,12 @@
   "keywords": [
     "mcp",
     "payments",
+    "billing",
+    "usage-billing",
     "monetization",
     "ai-tools",
     "stripe",
+    "prepaid",
     "agent",
     "llm",
     "model-context-protocol"

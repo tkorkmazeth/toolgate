@@ -1,5 +1,5 @@
 import type { ToolGate } from "./toolgate.js";
-import type { PaidToolConfig, ToolCallResult, PriceSpec } from "./types.js";
+import type { PaidToolConfig, ToolCallResult, PriceSpec, ExecutionPolicy, PolicyContext, CostEstimate } from "./types.js";
 import type {
   McpToolResult,
   McpToolRegistration,
@@ -63,6 +63,18 @@ export interface McpPaidToolConfig {
 
   /** Post-execution metering for "postpaid" */
   meter?: PaidToolConfig["meter"];
+
+  /** Execution policy — programmatic control over billing decisions */
+  policy?: PaidToolConfig["policy"];
+
+  /**
+   * Cost estimator — returns estimated price before execution.
+   * Used when policy.decide() returns "estimate".
+   */
+  estimate?: PaidToolConfig["estimate"];
+
+  /** Fires when fallback is triggered (for analytics/logging) */
+  onFallback?: PaidToolConfig["onFallback"];
 }
 
 // ─── MCP Adapter ───────────────────────────────────────────
@@ -114,6 +126,9 @@ export class McpAdapter {
       onFail: config.onFail,
       onPaymentFail: config.onPaymentFail,
       meter: config.meter,
+      policy: config.policy,
+      estimate: config.estimate,
+      onFallback: config.onFallback,
     });
 
     // Build the MCP handler that wraps ToolGate execution
@@ -169,7 +184,29 @@ export class McpAdapter {
 
   // ─── Internal: Format ToolCallResult → McpToolResult ───
 
-  private formatMcpResult(result: ToolCallResult, toolName: string): McpToolResult {
+  private formatMcpResult(result: ToolCallResult, toolName: string): McpToolResult {    // ── Cost Estimate (policy "estimate" decision) ──────────
+    if (
+      result.success &&
+      result.output !== null &&
+      result.output !== undefined &&
+      typeof result.output === "object" &&
+      !Array.isArray(result.output) &&
+      (result.output as Record<string, unknown>).type === "cost_estimate"
+    ) {
+      const est = result.output as Record<string, unknown>;
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Cost estimate for "${toolName}": $${Number(est.estimatedPrice).toFixed(4)} ${String(est.currency ?? "usd").toUpperCase()}${est.reason ? `\n${est.reason}` : ""}`,
+          },
+        ],
+        isError: false,
+        _meta: this.config.includeMeta
+          ? { toolgate: { costEstimate: est } }
+          : undefined,
+      };
+    }
     // ── Success ──────────────────────────────────────────
     if (result.success) {
       const content = serializeOutput(result.output);

@@ -25,6 +25,10 @@ export type {
   MeterResult,
   PaymentFailReason,
   GlobalHooks,
+  ExecutionPolicy,
+  PolicyDecision,
+  PolicyContext,
+  CostEstimate,
 } from "./types.js";
 
 export type { McpAdapterConfig, McpPaidToolConfig } from "./mcp-adapter.js";

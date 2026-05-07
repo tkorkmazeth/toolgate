@@ -1,0 +1,24 @@
+{
+  "name": "toolgate-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Toolgate hosted ledger API — Cloudflare Worker",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:create": "wrangler d1 create toolgate-db",
+    "db:migrate:local": "wrangler d1 execute toolgate-db --local --file=./schema.sql",
+    "db:migrate:remote": "wrangler d1 execute toolgate-db --file=./schema.sql"
+  },
+  "dependencies": {
+    "@tkorkmaz/toolgate": "^0.1.0-alpha.1",
+    "hono": "^4.4.0",
+    "stripe": "^17.7.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240529.0",
+    "typescript": "^5.4.0",
+    "wrangler": "^3.57.0"
+  }
+}

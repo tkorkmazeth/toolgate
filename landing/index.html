@@ -81,9 +81,11 @@
         and post-execution metering &mdash; so your tools never hard-fail on payment.
       </p>
 
-      <div class="flex items-center justify-center gap-3 mb-10">
-        <span class="pill pill-fiat">Stripe / Credit Card</span>
-        <span class="pill pill-crypto">+ x402 optional</span>
+      <div class="flex flex-wrap justify-center gap-3 mb-10">
+        <span class="px-4 py-2 rounded-full border border-border text-sm text-muted">Stripe (fiat)</span>
+        <span class="px-4 py-2 rounded-full border border-border text-sm text-muted">MPP (Stripe + Tempo)</span>
+        <span class="px-4 py-2 rounded-full border border-border text-sm text-muted">x402 (Coinbase)</span>
+        <span class="px-4 py-2 rounded-full border border-border text-sm text-muted">Custom rails</span>
       </div>
 
       <!-- Install box -->
@@ -118,7 +120,7 @@
           <strong class="text-zinc-200">paid or blocked</strong>. That’s wrong for real products.
           Toolgate gives developers <strong class="text-zinc-200">programmable control</strong> over what happens at the billing decision point —
           degrade gracefully, allow a trial call, estimate cost first, or block with a helpful 402.
-          Plus fiat-first Stripe payments with prepaid credits, so no per-call payment handshake.
+          Graceful fallback. Programmable billing decisions. Post-execution metering. Any payment rail.
         </p>
       </div>
     </div>
@@ -279,6 +281,15 @@ meter: (i, o, m) => ({ amount: m.durationMs * 0.0001 })</code></pre>
           <pre class="bg-bg rounded-lg p-3 overflow-x-auto"><code class="language-typescript text-xs">// Handler throws → balance refunded automatically
 // No manual refund logic needed</code></pre>
         </div>
+        <div class="feature-card bg-surface border border-border rounded-xl p-6 md:col-span-2">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-9 h-9 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            </div>
+            <h3 class="font-semibold text-white">Rail-agnostic by design</h3>
+          </div>
+          <p class="text-sm text-muted">Stripe today. MPP and x402 built in. Toolgate doesn't collect payments &mdash; it controls what happens at the billing decision point. Swap the settlement layer without changing your billing logic.</p>
+        </div>
       </div>
     </div>
   </section>
@@ -287,7 +298,7 @@ meter: (i, o, m) => ({ amount: m.durationMs * 0.0001 })</code></pre>
   <section class="px-6 py-24 border-t border-border">
     <div class="max-w-5xl mx-auto">
       <h2 class="text-3xl font-bold text-white text-center mb-4">How Toolgate compares</h2>
-      <p class="text-muted text-center mb-12 max-w-xl mx-auto">Every other per-call billing SDK is a binary gate — paid or blocked. Toolgate is programmable, fiat-first, and never hard-fails.</p>
+      <p class="text-muted text-center mb-12 max-w-xl mx-auto">Every other per-call billing SDK is a binary gate — paid or blocked. Toolgate is programmable, rail-agnostic, and never hard-fails.</p>
 
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -309,11 +320,11 @@ meter: (i, o, m) => ({ amount: m.durationMs * 0.0001 })</code></pre>
               <td class="py-3 px-4 text-center">SDK + hosted</td>
             </tr>
             <tr class="table-row border-b border-border/50">
-              <td class="py-3 px-4 text-zinc-400">Payment rail</td>
-              <td class="py-3 px-4 text-center"><span class="text-emerald-400 font-medium">Fiat (Stripe)</span></td>
-              <td class="py-3 px-4 text-center text-yellow-400">x402 / USDC</td>
-              <td class="py-3 px-4 text-center text-yellow-400">x402 / USDC</td>
-              <td class="py-3 px-4 text-center text-yellow-400">Stripe + crypto</td>
+              <td class="py-3 px-4 text-zinc-400">Payment rails</td>
+              <td class="py-3 px-4 text-center"><span class="text-emerald-400 font-medium">Stripe + MPP + x402</span></td>
+              <td class="py-3 px-4 text-center text-yellow-400">x402 only</td>
+              <td class="py-3 px-4 text-center text-yellow-400">x402 only</td>
+              <td class="py-3 px-4 text-center text-yellow-400">x402 only</td>
             </tr>
             <tr class="table-row border-b border-border/50">
               <td class="py-3 px-4 text-zinc-400">Graceful fallback</td>

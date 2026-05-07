@@ -10,6 +10,9 @@ import type {
   PriceSpec,
   ToolHandler,
   PolicyContext,
+  RailAdapter,
+  SettlementAction,
+  PaymentMode,
 } from "./types.js";
 import { InMemoryLedger } from "./ledger.js";
 
@@ -21,7 +24,12 @@ export class ToolGate {
       ToolGateConfig,
       "publisherKey" | "defaultCurrency" | "paymentRails" | "topUpBaseUrl"
     >
-  > & { ledger: LedgerAdapter; hooks: ToolGateConfig["hooks"] };
+  > & {
+    ledger: LedgerAdapter;
+    hooks: ToolGateConfig["hooks"];
+    railAdapters: RailAdapter[];
+    paymentMode: PaymentMode;
+  };
 
   private tools = new Map<string, PaidToolConfig>();
 
@@ -35,6 +43,8 @@ export class ToolGate {
         "https://toolgate-api.talha-korkmazeth.workers.dev/pay",
       ledger: config.ledger ?? new InMemoryLedger(),
       hooks: config.hooks,
+      railAdapters: config.railAdapters ?? [],
+      paymentMode: config.paymentMode ?? "hybrid",
     };
   }
 
@@ -150,11 +160,23 @@ export class ToolGate {
           const fallbackOutput = await tool.fallback(input, ctx);
           return { success: true, output: fallbackOutput, isFallback: true };
         }
-        return await this.handlePaymentFailure(tool, input, ctx, price, callerId);
+        return await this.handlePaymentFailure(
+          tool,
+          input,
+          ctx,
+          price,
+          callerId,
+        );
       }
 
       if (decision === "payment_required") {
-        return await this.handlePaymentFailure(tool, input, ctx, price, callerId);
+        return await this.handlePaymentFailure(
+          tool,
+          input,
+          ctx,
+          price,
+          callerId,
+        );
       }
 
       if (decision === "allow_once") {
@@ -185,7 +207,8 @@ export class ToolGate {
     // ── Step 3: Payment gate ────────────────────────────
 
     const isPostpaid = tool.price === "postpaid";
-    const needsPayment = tier === "premium" && price > 0 && !isPostpaid && !skipPaymentGate;
+    const needsPayment =
+      tier === "premium" && price > 0 && !isPostpaid && !skipPaymentGate;
 
     if (needsPayment) {
       const deducted = await ledger.deduct(callerId, price, {
@@ -196,7 +219,13 @@ export class ToolGate {
 
       if (!deducted) {
         // Insufficient balance — handle based on policy
-        return await this.handlePaymentFailure(tool, input, ctx, price, callerId);
+        return await this.handlePaymentFailure(
+          tool,
+          input,
+          ctx,
+          price,
+          callerId,
+        );
       }
 
       // Payment hook
@@ -334,7 +363,10 @@ export class ToolGate {
     }
 
     // ── Fallback: return degraded response ────────────────
-    if (policy === "fallback" && tool.fallback) {      if (tool.onFallback) await tool.onFallback(input, "insufficient_balance", ctx);      const fallbackOutput = await tool.fallback(input, ctx);
+    if (policy === "fallback" && tool.fallback) {
+      if (tool.onFallback)
+        await tool.onFallback(input, "insufficient_balance", ctx);
+      const fallbackOutput = await tool.fallback(input, ctx);
       return {
         success: true,
         output: fallbackOutput,
@@ -365,6 +397,35 @@ export class ToolGate {
       acceptedRails: this.config.paymentRails,
       topUpUrl: `${this.config.topUpBaseUrl}?publisher=${this.config.publisherKey}&caller=${encodeURIComponent(callerId)}&amount=${Math.ceil(requiredAmount * 100)}`,
     };
+
+    // ── Rail adapters: fan-out settlement creation ────────
+    if (this.config.railAdapters.length > 0) {
+      const results = await Promise.allSettled(
+        this.config.railAdapters.map((adapter) =>
+          adapter.createChallenge({
+            callerId,
+            amount: requiredAmount,
+            currency: this.config.defaultCurrency,
+            toolName: tool.name,
+            publisherKey: this.config.publisherKey,
+          }),
+        ),
+      );
+
+      const settlements: SettlementAction[] = [];
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          settlements.push(result.value);
+          // Backward compat: populate x402Challenge if x402 adapter present
+          if (result.value.x402PaymentRequired) {
+            paymentRequired.x402Challenge = result.value.x402PaymentRequired;
+          }
+        }
+      }
+      if (settlements.length > 0) {
+        paymentRequired.settlements = settlements;
+      }
+    }
 
     return {
       success: false,

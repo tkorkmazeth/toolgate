@@ -57,7 +57,9 @@ class InMemoryLedger {
   }
 }
 
-function round(n) { return Math.round(n * 1_000_000) / 1_000_000; }
+function round(n) {
+  return Math.round(n * 1_000_000) / 1_000_000;
+}
 
 function currentPeriod(period) {
   const d = new Date();
@@ -72,18 +74,23 @@ class ToolGate {
       publisherKey: config.publisherKey,
       defaultCurrency: config.defaultCurrency ?? "usd",
       paymentRails: config.paymentRails ?? ["stripe"],
-      topUpBaseUrl: config.topUpBaseUrl ?? "https://toolgate-api.talha-korkmazeth.workers.dev/pay",
+      topUpBaseUrl:
+        config.topUpBaseUrl ??
+        "https://toolgate-api.talha-korkmazeth.workers.dev/pay",
       ledger: config.ledger ?? new InMemoryLedger(),
       hooks: config.hooks,
     };
     this.tools = new Map();
   }
 
-  get ledger() { return this.config.ledger; }
+  get ledger() {
+    return this.config.ledger;
+  }
 
   paidTool(toolConfig) {
     this.tools.set(toolConfig.name, toolConfig);
-    const execute = (input, callerId) => this._executeTool(toolConfig, input, callerId);
+    const execute = (input, callerId) =>
+      this._executeTool(toolConfig, input, callerId);
     execute.toolName = toolConfig.name;
     execute.config = toolConfig;
     return execute;
@@ -102,7 +109,11 @@ class ToolGate {
 
     if (tool.tiers) {
       if (tool.tiers.free) {
-        const usage = await ledger.getUsage(callerId, tool.name, tool.tiers.free.period);
+        const usage = await ledger.getUsage(
+          callerId,
+          tool.name,
+          tool.tiers.free.period,
+        );
         if (usage < tool.tiers.free.limit) {
           tier = "free";
           price = 0;
@@ -119,7 +130,10 @@ class ToolGate {
 
     // ── Step 2: Build execution context ────────────────────
     const ctx = {
-      callerId, callId, tool: tool.name, tier,
+      callerId,
+      callId,
+      tool: tool.name,
+      tier,
       balance: await ledger.getBalance(callerId),
       timestamp: Date.now(),
     };
@@ -148,11 +162,23 @@ class ToolGate {
           const fallbackOutput = await tool.fallback(input, ctx);
           return { success: true, output: fallbackOutput, isFallback: true };
         }
-        return await this._handlePaymentFailure(tool, input, ctx, price, callerId);
+        return await this._handlePaymentFailure(
+          tool,
+          input,
+          ctx,
+          price,
+          callerId,
+        );
       }
 
       if (decision === "payment_required") {
-        return await this._handlePaymentFailure(tool, input, ctx, price, callerId);
+        return await this._handlePaymentFailure(
+          tool,
+          input,
+          ctx,
+          price,
+          callerId,
+        );
       }
 
       if (decision === "allow_once") {
@@ -160,7 +186,14 @@ class ToolGate {
       }
 
       if (decision === "estimate") {
-        const estimateCtx = { callerId, tier, balance: ctx.balance, input, tool: tool.name, usageToday };
+        const estimateCtx = {
+          callerId,
+          tier,
+          balance: ctx.balance,
+          input,
+          tool: tool.name,
+          usageToday,
+        };
         const costEstimate = tool.estimate
           ? await tool.estimate(input, estimateCtx)
           : { estimatedPrice: price, currency: this.config.defaultCurrency };
@@ -175,12 +208,23 @@ class ToolGate {
 
     // ── Step 3: Payment gate ────────────────────────────────
     const isPostpaid = tool.price === "postpaid";
-    const needsPayment = tier === "premium" && price > 0 && !isPostpaid && !skipPaymentGate;
+    const needsPayment =
+      tier === "premium" && price > 0 && !isPostpaid && !skipPaymentGate;
 
     if (needsPayment) {
-      const deducted = await ledger.deduct(callerId, price, { callId, tool: tool.name, amount: price });
+      const deducted = await ledger.deduct(callerId, price, {
+        callId,
+        tool: tool.name,
+        amount: price,
+      });
       if (!deducted) {
-        return await this._handlePaymentFailure(tool, input, ctx, price, callerId);
+        return await this._handlePaymentFailure(
+          tool,
+          input,
+          ctx,
+          price,
+          callerId,
+        );
       }
       this.config.hooks?.onPayment?.(tool.name, callerId, price);
     }
@@ -190,9 +234,15 @@ class ToolGate {
       const proceed = await tool.beforeExecute(input, ctx);
       if (!proceed) {
         if (needsPayment) {
-          await ledger.credit(callerId, price, { source: "manual", reference: `refund:${callId}:aborted` });
+          await ledger.credit(callerId, price, {
+            source: "manual",
+            reference: `refund:${callId}:aborted`,
+          });
         }
-        return { success: false, output: { error: "Execution aborted by beforeExecute hook" } };
+        return {
+          success: false,
+          output: { error: "Execution aborted by beforeExecute hook" },
+        };
       }
     }
 
@@ -207,7 +257,10 @@ class ToolGate {
       const endedAt = Date.now();
       metrics = { durationMs: endedAt - startedAt, startedAt, endedAt };
       if (needsPayment) {
-        await ledger.credit(callerId, price, { source: "manual", reference: `refund:${callId}:error` });
+        await ledger.credit(callerId, price, {
+          source: "manual",
+          reference: `refund:${callId}:error`,
+        });
       }
       if (tool.onFail) await tool.onFail(input, error, ctx);
       this.config.hooks?.onError?.(tool.name, error);
@@ -224,11 +277,18 @@ class ToolGate {
     return {
       success: true,
       output,
-      receipt: price > 0 ? {
-        callId, tool: tool.name, amount: price,
-        currency: this.config.defaultCurrency, rail: "prepaid",
-        balanceAfter, timestamp: Date.now(),
-      } : undefined,
+      receipt:
+        price > 0
+          ? {
+              callId,
+              tool: tool.name,
+              amount: price,
+              currency: this.config.defaultCurrency,
+              rail: "prepaid",
+              balanceAfter,
+              timestamp: Date.now(),
+            }
+          : undefined,
       metrics,
       isFallback: false,
     };
@@ -246,7 +306,8 @@ class ToolGate {
     }
 
     if (policy === "fallback" && tool.fallback) {
-      if (tool.onFallback) await tool.onFallback(input, "insufficient_balance", ctx);
+      if (tool.onFallback)
+        await tool.onFallback(input, "insufficient_balance", ctx);
       const fallbackOutput = await tool.fallback(input, ctx);
       return { success: true, output: fallbackOutput, isFallback: true };
     }
@@ -255,15 +316,23 @@ class ToolGate {
       const startedAt = Date.now();
       const output = await tool.handler(input, ctx);
       const endedAt = Date.now();
-      return { success: true, output, metrics: { durationMs: endedAt - startedAt, startedAt, endedAt }, isFallback: false };
+      return {
+        success: true,
+        output,
+        metrics: { durationMs: endedAt - startedAt, startedAt, endedAt },
+        isFallback: false,
+      };
     }
 
     const callerId_ = callerId ?? ctx.callerId;
     return {
       success: false,
       paymentRequired: {
-        status: 402, error: "payment_required", tool: tool.name,
-        amount: requiredAmount, currency: this.config.defaultCurrency,
+        status: 402,
+        error: "payment_required",
+        tool: tool.name,
+        amount: requiredAmount,
+        currency: this.config.defaultCurrency,
         acceptedRails: this.config.paymentRails,
         topUpUrl: `${this.config.topUpBaseUrl}?publisher=${this.config.publisherKey}&caller=${encodeURIComponent(callerId_)}&amount=${Math.ceil(requiredAmount * 100)}`,
       },
@@ -293,7 +362,10 @@ describe("ExecutionPolicy", () => {
   // ── 1. Policy "execute" → normal paid flow ──────────────────
 
   it("policy 'execute' continues to normal paid flow", async () => {
-    await ledger.credit("agent-1", 1.00, { source: "manual", reference: "test" });
+    await ledger.credit("agent-1", 1.0, {
+      source: "manual",
+      reference: "test",
+    });
 
     const tool = gate.paidTool({
       name: "search",
@@ -314,7 +386,10 @@ describe("ExecutionPolicy", () => {
   // ── 2. Policy "fallback" → fallback handler runs, no charge ───
 
   it("policy 'fallback' runs fallback handler without charging", async () => {
-    await ledger.credit("agent-1", 1.00, { source: "manual", reference: "test" });
+    await ledger.credit("agent-1", 1.0, {
+      source: "manual",
+      reference: "test",
+    });
 
     const tool = gate.paidTool({
       name: "search",
@@ -330,17 +405,20 @@ describe("ExecutionPolicy", () => {
     assert.equal(result.output, "basic result");
     assert.equal(result.isFallback, true);
     // No charge — balance unchanged
-    assert.equal(await ledger.getBalance("agent-1"), 1.00);
+    assert.equal(await ledger.getBalance("agent-1"), 1.0);
   });
 
   // ── 3. Policy "payment_required" → 402 response ────────────────
 
   it("policy 'payment_required' returns 402 regardless of balance", async () => {
-    await ledger.credit("agent-1", 5.00, { source: "manual", reference: "test" });
+    await ledger.credit("agent-1", 5.0, {
+      source: "manual",
+      reference: "test",
+    });
 
     const tool = gate.paidTool({
       name: "restricted",
-      price: 0.10,
+      price: 0.1,
       handler: async () => "should not run",
       policy: { decide: async () => "payment_required" },
     });
@@ -350,9 +428,9 @@ describe("ExecutionPolicy", () => {
     assert.equal(result.success, false);
     assert.ok(result.paymentRequired);
     assert.equal(result.paymentRequired.status, 402);
-    assert.equal(result.paymentRequired.amount, 0.10);
+    assert.equal(result.paymentRequired.amount, 0.1);
     // Balance untouched
-    assert.equal(await ledger.getBalance("agent-1"), 5.00);
+    assert.equal(await ledger.getBalance("agent-1"), 5.0);
   });
 
   // ── 4. Policy "allow_once" → handler runs without charge ───────
@@ -361,7 +439,7 @@ describe("ExecutionPolicy", () => {
     // No balance, but allow_once should still run
     const tool = gate.paidTool({
       name: "trial",
-      price: 0.50,
+      price: 0.5,
       handler: async () => "trial output",
       policy: { decide: async () => "allow_once" },
     });
@@ -379,11 +457,13 @@ describe("ExecutionPolicy", () => {
   it("policy 'estimate' returns cost estimate without executing", async () => {
     const tool = gate.paidTool({
       name: "analysis",
-      price: 0.20,
-      handler: async () => { throw new Error("should not execute"); },
+      price: 0.2,
+      handler: async () => {
+        throw new Error("should not execute");
+      },
       policy: { decide: async () => "estimate" },
       estimate: async (input, ctx) => ({
-        estimatedPrice: 0.20,
+        estimatedPrice: 0.2,
         currency: "usd",
         reason: "Standard analysis rate",
       }),
@@ -393,7 +473,7 @@ describe("ExecutionPolicy", () => {
 
     assert.equal(result.success, true);
     assert.equal(result.output.type, "cost_estimate");
-    assert.equal(result.output.estimatedPrice, 0.20);
+    assert.equal(result.output.estimatedPrice, 0.2);
     assert.equal(result.output.currency, "usd");
     assert.equal(result.output.reason, "Standard analysis rate");
     assert.equal(result.isFallback, false);
@@ -403,19 +483,19 @@ describe("ExecutionPolicy", () => {
 
   it("policy dynamically decides based on caller balance", async () => {
     const policy = {
-      decide: async (ctx) => ctx.balance >= 0.50 ? "execute" : "fallback",
+      decide: async (ctx) => (ctx.balance >= 0.5 ? "execute" : "fallback"),
     };
 
     const richTool = gate.paidTool({
       name: "rich-search",
-      price: 0.10,
+      price: 0.1,
       handler: async () => "premium",
       fallback: async () => "basic",
       policy,
     });
 
     // Rich caller (1.00 balance) → execute
-    await ledger.credit("rich", 1.00, { source: "manual", reference: "test" });
+    await ledger.credit("rich", 1.0, { source: "manual", reference: "test" });
     const richResult = await richTool({}, "rich");
     assert.equal(richResult.output, "premium");
     assert.equal(richResult.isFallback, false);
@@ -431,7 +511,7 @@ describe("ExecutionPolicy", () => {
   it("policy inspects input to make decision", async () => {
     const tool = gate.paidTool({
       name: "deep-search",
-      price: 0.10,
+      price: 0.1,
       handler: async (input) => `deep result for: ${input.query}`,
       fallback: async (input) => `shallow result for: ${input.query}`,
       policy: {
@@ -440,7 +520,10 @@ describe("ExecutionPolicy", () => {
       },
     });
 
-    await ledger.credit("agent-1", 1.00, { source: "manual", reference: "test" });
+    await ledger.credit("agent-1", 1.0, {
+      source: "manual",
+      reference: "test",
+    });
 
     // Deep query → execute (charge applies)
     const deepResult = await tool({ query: "AI", depth: "deep" }, "agent-1");
@@ -448,7 +531,10 @@ describe("ExecutionPolicy", () => {
     assert.equal(deepResult.isFallback, false);
 
     // Shallow query → fallback (no charge)
-    const shallowResult = await tool({ query: "AI", depth: "shallow" }, "agent-1");
+    const shallowResult = await tool(
+      { query: "AI", depth: "shallow" },
+      "agent-1",
+    );
     assert.equal(shallowResult.output, "shallow result for: AI");
     assert.equal(shallowResult.isFallback, true);
   });
@@ -462,7 +548,7 @@ describe("ExecutionPolicy", () => {
       name: "tiered-tool",
       tiers: {
         free: { limit: 3, period: "day" },
-        premium: { price: 0.10 },
+        premium: { price: 0.1 },
       },
       handler: async () => "result",
       policy: {
@@ -518,7 +604,7 @@ describe("ExecutionPolicy", () => {
 
     const tool = gate.paidTool({
       name: "balance-monitored",
-      price: 0.50,
+      price: 0.5,
       handler: async () => "premium",
       fallback: async () => "basic",
       onPaymentFailed: "fallback",
@@ -541,7 +627,7 @@ describe("ExecutionPolicy", () => {
   it("no policy defined → existing payment gate behavior unchanged", async () => {
     const tool = gate.paidTool({
       name: "legacy-tool",
-      price: 0.10,
+      price: 0.1,
       handler: async () => "result",
       // No policy field
     });
@@ -552,10 +638,13 @@ describe("ExecutionPolicy", () => {
     assert.equal(noBalanceResult.paymentRequired.status, 402);
 
     // Credit balance → success
-    await ledger.credit("agent-1", 1.00, { source: "manual", reference: "test" });
+    await ledger.credit("agent-1", 1.0, {
+      source: "manual",
+      reference: "test",
+    });
     const paidResult = await tool({}, "agent-1");
     assert.equal(paidResult.success, true);
     assert.equal(paidResult.output, "result");
-    assert.equal(paidResult.receipt.amount, 0.10);
+    assert.equal(paidResult.receipt.amount, 0.1);
   });
 });

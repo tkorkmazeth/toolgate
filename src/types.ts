@@ -12,6 +12,8 @@ export interface ToolGateConfig {
   hooks?: GlobalHooks;
   /** Payment rail adapters for 402 settlement options */
   railAdapters?: RailAdapter[];
+  /** Payment mode — prepaid (balance-only), per_request (rail-only), or hybrid. Default: "hybrid" */
+  paymentMode?: PaymentMode;
   /**
    * Base URL for Stripe top-up redirect links included in 402 responses.
    * The SDK appends `?publisher=...&caller=...&amount=...` to this URL.
@@ -22,6 +24,8 @@ export interface ToolGateConfig {
 }
 
 export type PaymentRail = "stripe" | "x402" | "mpp";
+
+export type PaymentMode = "prepaid" | "per_request" | "hybrid";
 
 // ─── Pricing ───────────────────────────────────────────────
 
@@ -244,41 +248,61 @@ export interface CreditMeta {
 
 // ─── Rail Adapter (settlement layer abstraction) ──────────
 
-/**
- * A RailAdapter handles payment settlement for a specific rail.
- * It converts a payment requirement into a settlement action
- * (e.g., Stripe Checkout URL, MPP session, x402 challenge).
- *
- * This is NOT the ledger — it's the bridge between "payment needed"
- * and "payment settled". The ledger gets credited when settlement completes.
- */
 export interface RailAdapter {
   /** Which rail this adapter handles */
   rail: PaymentRail;
 
   /**
-   * Build a settlement action for the given payment requirement.
-   * Returns a URL, challenge, or session that the caller can use to pay.
+   * Create a payment challenge for the caller.
+   * Returns a standardized settlement action with rail-specific details.
    */
-  createSettlement(params: {
-    callerId: string;
-    amount: number;
-    currency: string;
-    toolName: string;
-    publisherKey: string;
-  }): Promise<SettlementAction>;
+  createChallenge(params: ChallengeParams): Promise<SettlementAction>;
+
+  /**
+   * Verify a payment proof from a retry request.
+   * Returns the verified amount if valid, null if invalid.
+   * Used in "per_request" and "hybrid" modes.
+   */
+  verifyPayment?(proof: PaymentProof): Promise<VerificationResult | null>;
+}
+
+export interface ChallengeParams {
+  callerId: string;
+  amount: number;
+  currency: string;
+  toolName: string;
+  publisherKey: string;
 }
 
 export interface SettlementAction {
   rail: PaymentRail;
-  /** URL for the caller to complete payment (Stripe Checkout, MPP session, etc.) */
+  /** URL for the caller to complete payment */
   url?: string;
-  /** x402 challenge payload for crypto-native agents */
-  x402Challenge?: Record<string, unknown>;
-  /** MPP session ID for streaming micropayments */
-  mppSessionId?: string;
-  /** Expiration timestamp (seconds since epoch) */
+  /** x402 payment requirement (for x402 protocol) */
+  x402PaymentRequired?: Record<string, unknown>;
+  /** MPP challenge (for MPP protocol) */
+  mppChallenge?: Record<string, unknown>;
+  /** Expiration (seconds since epoch) */
   expiresAt?: number;
+}
+
+export interface PaymentProof {
+  rail: PaymentRail;
+  /** MPP: Payment header value from retry request */
+  mppPaymentHeader?: string;
+  /** x402: Payment proof from retry request */
+  x402Proof?: Record<string, unknown>;
+  /** Raw request for middleware-level verification */
+  rawRequest?: unknown;
+}
+
+export interface VerificationResult {
+  verified: true;
+  rail: PaymentRail;
+  amount: number;
+  currency: string;
+  /** Receipt/tx ID from the payment rail */
+  receiptId: string;
 }
 
 // ─── Global Hooks ──────────────────────────────────────────

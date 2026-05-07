@@ -1,6 +1,6 @@
 {
   "name": "@tkorkmaz/toolgate",
-  "version": "0.1.0-alpha.1",
+  "version": "0.2.0-alpha.1",
   "description": "Billing-aware execution SDK for paid MCP tools — graceful fallback, programmable billing logic, and rail-agnostic metering. Works with Stripe, MPP, and x402.",
   "type": "module",
   "main": "dist/index.js",
@@ -21,7 +21,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "node --test src/__tests__/paidTool.test.mjs src/__tests__/mcp-adapter.test.mjs src/__tests__/stripe.test.mjs src/__tests__/webhook-handler.test.mjs src/__tests__/db-ledger.test.mjs",
+    "test": "node --test src/__tests__/paidTool.test.mjs src/__tests__/mcp-adapter.test.mjs src/__tests__/stripe.test.mjs src/__tests__/webhook-handler.test.mjs src/__tests__/db-ledger.test.mjs src/__tests__/rail-adapter.test.mjs",
     "prepublishOnly": "npm run build && npm test"
   },
   "keywords": [
@@ -51,10 +51,18 @@
     "url": "https://github.com/tkorkmazeth/toolgate/issues"
   },
   "peerDependencies": {
-    "stripe": ">=14.0.0"
+    "stripe": ">=14.0.0",
+    "mppx": ">=0.1.0",
+    "@x402/core": ">=0.1.0"
   },
   "peerDependenciesMeta": {
     "stripe": {
+      "optional": true
+    },
+    "mppx": {
+      "optional": true
+    },
+    "@x402/core": {
       "optional": true
     }
   },

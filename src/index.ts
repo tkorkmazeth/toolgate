@@ -5,6 +5,18 @@ export { InMemoryLedger } from "./ledger.js";
 // MCP Adapter
 export { McpAdapter, createMcpAdapter } from "./mcp-adapter.js";
 
+// Rail Adapters (Stripe production, MPP via mppx, x402 via @x402/core)
+export {
+  StripeRailAdapter,
+  MppRailAdapter,
+  X402RailAdapter,
+} from "./rail-adapters/index.js";
+export type {
+  StripeRailConfig,
+  MppRailConfig,
+  X402RailConfig,
+} from "./rail-adapters/index.js";
+
 // Stripe Integration (Phase 1)
 export { StripeAdapter } from "./stripe-adapter.js";
 export { WebhookHandler, createWebhookHandler } from "./webhook-handler.js";
@@ -31,6 +43,10 @@ export type {
   CostEstimate,
   RailAdapter,
   SettlementAction,
+  PaymentMode,
+  ChallengeParams,
+  PaymentProof,
+  VerificationResult,
 } from "./types.js";
 
 export type { McpAdapterConfig, McpPaidToolConfig } from "./mcp-adapter.js";

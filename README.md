@@ -2,7 +2,7 @@
 
 Billing-aware execution SDK for paid MCP tools — graceful fallback, programmable billing logic, and rail-agnostic metering.
 
-Works with Stripe (fiat), MPP (Stripe+Tempo), and x402 (crypto) — or bring your own rail.
+Works with Stripe (fiat), MPP (Stripe+Tempo), and x402 (crypto). You handle the billing decisions — Toolgate handles execution reliability.
 
 ```
 npm install @tkorkmaz/toolgate
@@ -110,22 +110,22 @@ const research = gate.paidTool({
 
 ### Execution Policy
 
-Programmatic control over *what happens* at the billing decision point — per call, per caller, per input:
+Programmatic control over _what happens_ at the billing decision point — per call, per caller, per input:
 
 ```typescript
 const search = gate.paidTool({
   name: "premium_search",
-  price: 0.10,
+  price: 0.1,
   handler: async (input) => deepSearch(input.query),
   fallback: async (input) => quickSearch(input.query),
 
   policy: {
     decide: async ({ balance, tier, input, usageToday }) => {
-      if (tier === "free") return "execute";           // free tier always runs
-      if (balance >= 0.50) return "execute";           // well-funded → execute
+      if (tier === "free") return "execute"; // free tier always runs
+      if (balance >= 0.5) return "execute"; // well-funded → execute
       if (balance > 0 && usageToday < 5) return "allow_once"; // grace period
-      if (balance === 0) return "fallback";            // no balance → degrade gracefully
-      return "payment_required";                       // otherwise block
+      if (balance === 0) return "fallback"; // no balance → degrade gracefully
+      return "payment_required"; // otherwise block
     },
   },
 
@@ -138,13 +138,13 @@ const search = gate.paidTool({
 
 **Policy decisions:**
 
-| Decision | Effect |
-|---|---|
-| `"execute"` | Normal paid execution |
-| `"fallback"` | Runs fallback handler without charging |
-| `"payment_required"` | Returns 402, even if balance > 0 |
-| `"allow_once"` | Executes free (grace period / trial) |
-| `"estimate"` | Returns a cost estimate without executing |
+| Decision             | Effect                                    |
+| -------------------- | ----------------------------------------- |
+| `"execute"`          | Normal paid execution                     |
+| `"fallback"`         | Runs fallback handler without charging    |
+| `"payment_required"` | Returns 402, even if balance > 0          |
+| `"allow_once"`       | Executes free (grace period / trial)      |
+| `"estimate"`         | Returns a cost estimate without executing |
 
 Pair with a cost estimator for pre-flight transparency:
 
@@ -418,25 +418,39 @@ Handler throws  ──→   Refund balance, return error
 
 ## Rail-Agnostic Architecture
 
-Toolgate separates billing logic from payment rails. Register any `RailAdapter` to control how 402 responses are enriched:
+Toolgate doesn't collect payments — it controls what happens at the billing decision point. Payment settlement is delegated to rail adapters:
 
-| Rail | Adapter | Status |
-| ---- | ------- | ------ |
-| Stripe (fiat) | `StripeRailAdapter` | Stable |
-| MPP (HTTP 402, IETF) | `MppRailAdapter` | Stub |
-| x402 (USDC/crypto) | `X402RailAdapter` | Stub |
-| Custom | Implement `RailAdapter` | Always |
+| Rail                   | Settlement                                    | Status     |
+| ---------------------- | --------------------------------------------- | ---------- |
+| **Stripe** (fiat)      | Credit card, BNPL via Stripe Checkout         | Production |
+| **MPP** (Stripe+Tempo) | Session-based micropayments via mppx          | Production |
+| **x402** (Coinbase)    | USDC on Base/Solana/10+ chains via @x402/core | Production |
+| **Custom**             | Implement `RailAdapter` for any backend       | Always     |
 
 ```typescript
-import { ToolGate, StripeRailAdapter } from '@tkorkmaz/toolgate';
+import { ToolGate } from "@tkorkmaz/toolgate";
+import { MppRailAdapter } from "@tkorkmaz/toolgate";
+import { stripe } from "mppx/server";
 
 const gate = new ToolGate({
-  ledger,
+  publisherKey: "tg_pub_xxx",
   railAdapters: [
-    new StripeRailAdapter({ publishableKey: process.env.STRIPE_PK! })
-  ]
+    new MppRailAdapter({
+      methods: [stripe({ secretKey: process.env.STRIPE_SECRET_KEY! })],
+    }),
+  ],
+});
+
+// Same paidTool API — now with MPP settlement on 402
+const search = gate.paidTool({
+  name: "premium_search",
+  price: 0.05,
+  handler: async (input) => deepSearch(input.query),
+  fallback: async (input) => quickSearch(input.query),
 });
 ```
+
+Regardless of rail, the execution pipeline is identical: balance check → policy evaluation → execute or fallback → receipt → refund on error.
 
 When balance is insufficient, each registered adapter contributes a `SettlementAction` to the 402 response — letting the caller pick the rail that suits them.
 

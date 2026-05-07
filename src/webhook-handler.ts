@@ -61,7 +61,7 @@ export class WebhookHandler {
     // ── Verify signature ────────────────────────────────────
     let event: Stripe.Event;
     try {
-      event = this.stripe.webhooks.constructEvent(
+      event = await this.stripe.webhooks.constructEventAsync(
         rawBody,
         signature,
         this.webhookSecret,

@@ -9,6 +9,7 @@ import type {
   LedgerAdapter,
   PriceSpec,
   ToolHandler,
+  PolicyContext,
 } from "./types.js";
 import { InMemoryLedger } from "./ledger.js";
 
@@ -16,7 +17,10 @@ import { InMemoryLedger } from "./ledger.js";
 
 export class ToolGate {
   private config: Required<
-    Pick<ToolGateConfig, "publisherKey" | "defaultCurrency" | "paymentRails">
+    Pick<
+      ToolGateConfig,
+      "publisherKey" | "defaultCurrency" | "paymentRails" | "topUpBaseUrl"
+    >
   > & { ledger: LedgerAdapter; hooks: ToolGateConfig["hooks"] };
 
   private tools = new Map<string, PaidToolConfig>();
@@ -26,6 +30,9 @@ export class ToolGate {
       publisherKey: config.publisherKey,
       defaultCurrency: config.defaultCurrency ?? "usd",
       paymentRails: config.paymentRails ?? ["stripe"],
+      topUpBaseUrl:
+        config.topUpBaseUrl ??
+        "https://toolgate-api.talha-korkmazeth.workers.dev/pay",
       ledger: config.ledger ?? new InMemoryLedger(),
       hooks: config.hooks,
     };
@@ -70,7 +77,7 @@ export class ToolGate {
   private async executeTool(
     tool: PaidToolConfig,
     input: unknown,
-    callerId: string
+    callerId: string,
   ): Promise<ToolCallResult> {
     const callId = generateCallId();
     const ledger = this.config.ledger;
@@ -90,7 +97,7 @@ export class ToolGate {
         const usage = await ledger.getUsage(
           callerId,
           tool.name,
-          tool.tiers.free.period
+          tool.tiers.free.period,
         );
         if (usage < tool.tiers.free.limit) {
           tier = "free";
@@ -118,10 +125,67 @@ export class ToolGate {
       timestamp: Date.now(),
     };
 
-    // ── Step 3: Payment gate ──────────────────────────────
+    // ── Step 2.5: Policy evaluation ───────────────────────────
+
+    let skipPaymentGate = false;
+    if (tool.policy) {
+      const isPostpaidForPolicy = tool.price === "postpaid";
+      const estimatedPrice = isPostpaidForPolicy ? 0 : price;
+      const usageToday = await ledger.getUsage(callerId, tool.name, "day");
+      const policyCtx: PolicyContext = {
+        callerId,
+        tier,
+        balance: ctx.balance,
+        estimatedPrice,
+        input,
+        tool: tool.name,
+        usageToday,
+      };
+
+      const decision = await tool.policy.decide(policyCtx);
+
+      if (decision === "fallback") {
+        if (tool.onFallback) await tool.onFallback(input, "fallback", ctx);
+        if (tool.fallback) {
+          const fallbackOutput = await tool.fallback(input, ctx);
+          return { success: true, output: fallbackOutput, isFallback: true };
+        }
+        return await this.handlePaymentFailure(tool, input, ctx, price, callerId);
+      }
+
+      if (decision === "payment_required") {
+        return await this.handlePaymentFailure(tool, input, ctx, price, callerId);
+      }
+
+      if (decision === "allow_once") {
+        skipPaymentGate = true;
+      }
+
+      if (decision === "estimate") {
+        const estimateCtx: Omit<PolicyContext, "estimatedPrice"> = {
+          callerId,
+          tier,
+          balance: ctx.balance,
+          input,
+          tool: tool.name,
+          usageToday,
+        };
+        const costEstimate = tool.estimate
+          ? await tool.estimate(input, estimateCtx)
+          : { estimatedPrice: price, currency: this.config.defaultCurrency };
+        return {
+          success: true,
+          output: { type: "cost_estimate", ...costEstimate },
+          isFallback: false,
+        };
+      }
+      // "execute" or default → continue with normal payment gate
+    }
+
+    // ── Step 3: Payment gate ────────────────────────────
 
     const isPostpaid = tool.price === "postpaid";
-    const needsPayment = tier === "premium" && price > 0 && !isPostpaid;
+    const needsPayment = tier === "premium" && price > 0 && !isPostpaid && !skipPaymentGate;
 
     if (needsPayment) {
       const deducted = await ledger.deduct(callerId, price, {
@@ -132,7 +196,7 @@ export class ToolGate {
 
       if (!deducted) {
         // Insufficient balance — handle based on policy
-        return await this.handlePaymentFailure(tool, input, ctx, price);
+        return await this.handlePaymentFailure(tool, input, ctx, price, callerId);
       }
 
       // Payment hook
@@ -151,7 +215,10 @@ export class ToolGate {
             reference: `refund:${callId}:aborted`,
           });
         }
-        return { success: false, output: { error: "Execution aborted by beforeExecute hook" } };
+        return {
+          success: false,
+          output: { error: "Execution aborted by beforeExecute hook" },
+        };
       }
     }
 
@@ -183,7 +250,11 @@ export class ToolGate {
       }
       this.config.hooks?.onError?.(tool.name, error as Error);
 
-      return { success: false, output: { error: (error as Error).message }, metrics };
+      return {
+        success: false,
+        output: { error: (error as Error).message },
+        metrics,
+      };
     }
 
     // ── Step 5b: Track usage for free tier calls ───────────
@@ -225,17 +296,18 @@ export class ToolGate {
     return {
       success: true,
       output,
-      receipt: price > 0
-        ? {
-            callId,
-            tool: tool.name,
-            amount: price,
-            currency: this.config.defaultCurrency,
-            rail: "prepaid",
-            balanceAfter,
-            timestamp: Date.now(),
-          }
-        : undefined,
+      receipt:
+        price > 0
+          ? {
+              callId,
+              tool: tool.name,
+              amount: price,
+              currency: this.config.defaultCurrency,
+              rail: "prepaid",
+              balanceAfter,
+              timestamp: Date.now(),
+            }
+          : undefined,
       metrics,
       isFallback: false,
     };
@@ -247,7 +319,8 @@ export class ToolGate {
     tool: PaidToolConfig,
     input: unknown,
     ctx: ExecutionContext,
-    requiredAmount: number
+    requiredAmount: number,
+    callerId: string,
   ): Promise<ToolCallResult> {
     const policy = tool.onPaymentFailed ?? "block";
 
@@ -261,8 +334,7 @@ export class ToolGate {
     }
 
     // ── Fallback: return degraded response ────────────────
-    if (policy === "fallback" && tool.fallback) {
-      const fallbackOutput = await tool.fallback(input, ctx);
+    if (policy === "fallback" && tool.fallback) {      if (tool.onFallback) await tool.onFallback(input, "insufficient_balance", ctx);      const fallbackOutput = await tool.fallback(input, ctx);
       return {
         success: true,
         output: fallbackOutput,
@@ -291,7 +363,7 @@ export class ToolGate {
       amount: requiredAmount,
       currency: this.config.defaultCurrency,
       acceptedRails: this.config.paymentRails,
-      topUpUrl: `https://pay.toolgate.dev/topup?publisher=${this.config.publisherKey}&amount=${Math.ceil(requiredAmount * 100)}`,
+      topUpUrl: `${this.config.topUpBaseUrl}?publisher=${this.config.publisherKey}&caller=${encodeURIComponent(callerId)}&amount=${Math.ceil(requiredAmount * 100)}`,
     };
 
     return {
@@ -305,7 +377,7 @@ export class ToolGate {
 
 async function resolvePrice(
   spec: Exclude<PriceSpec, "postpaid">,
-  input: unknown
+  input: unknown,
 ): Promise<number> {
   if (typeof spec === "number") return spec;
   if (typeof spec === "function") return await spec(input);

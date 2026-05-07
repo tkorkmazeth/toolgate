@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Toolgate — Monetize your MCP tools with usage-based payments</title>
-  <meta name="description" content="Embedded payment enforcement SDK for MCP servers. Add per-call pricing, prepaid balance, Stripe top-ups, and execution-time access control in 5 lines of code.">
-  <meta property="og:title" content="Toolgate — Monetize MCP Tools">
-  <meta property="og:description" content="5 lines to monetize. Full control when you need it.">
+  <title>Toolgate — Billing-aware execution SDK for paid MCP tools</title>
+  <meta name="description" content="Make paid MCP tools reliable. Graceful fallback, programmable billing logic, post-execution metering, and automatic refunds.">
+  <meta property="og:title" content="Toolgate — Billing-aware execution SDK for paid MCP tools">
+  <meta property="og:description" content="Graceful fallback. Programmable billing decisions. Post-execution metering. No hard failures.">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x26A1;</text></svg>">
@@ -57,11 +57,14 @@
     .install-box { cursor: pointer; transition: border-color 0.2s; }
     .install-box:hover { border-color: #6366f1; }
     .table-row:nth-child(even) { background: rgba(255,255,255,0.02); }
+    .pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 9999px; font-size: 0.7rem; font-weight: 500; }
+    .pill-fiat { background: rgba(16,185,129,0.1); color: #34d399; border: 1px solid rgba(16,185,129,0.2); }
+    .pill-crypto { background: rgba(251,191,36,0.1); color: #fbbf24; border: 1px solid rgba(251,191,36,0.2); }
   </style>
 </head>
 <body class="text-zinc-300 antialiased">
 
-  <!-- ═══ HERO ═══ -->
+  <!-- HERO -->
   <section class="min-h-[85vh] flex items-center justify-center px-6">
     <div class="max-w-3xl mx-auto text-center">
       <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border text-xs text-muted mb-8">
@@ -70,15 +73,18 @@
       </div>
 
       <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white leading-tight tracking-tight mb-6">
-        Monetize your MCP tools<br>
-        with <span class="gradient-text">usage-based payments</span>
+        Make paid MCP tools <span class="gradient-text">reliable</span>
       </h1>
 
-      <p class="text-lg sm:text-xl text-muted max-w-2xl mx-auto mb-10 leading-relaxed">
-        Embedded payment enforcement SDK for MCP servers.
-        Add per-call pricing, prepaid balance, and Stripe top-ups
-        to any tool — no proxy, no marketplace, full control.
+      <p class="text-lg sm:text-xl text-muted max-w-2xl mx-auto mb-4 leading-relaxed">
+        Open-source SDK for graceful fallback, programmable billing logic,
+        and post-execution metering &mdash; so your tools never hard-fail on payment.
       </p>
+
+      <div class="flex items-center justify-center gap-3 mb-10">
+        <span class="pill pill-fiat">Stripe / Credit Card</span>
+        <span class="pill pill-crypto">+ x402 optional</span>
+      </div>
 
       <!-- Install box -->
       <div class="install-box inline-flex items-center gap-3 bg-surface border border-border rounded-lg px-5 py-3 mb-8 font-mono text-sm" onclick="copyInstall(this)">
@@ -102,10 +108,26 @@
     </div>
   </section>
 
-  <!-- ═══ CODE EXAMPLE ═══ -->
+  <!-- WHY TOOLGATE -->
+  <section class="px-6 pb-20">
+    <div class="max-w-3xl mx-auto">
+      <div class="bg-surface border border-border rounded-xl p-6 sm:p-8">
+        <h2 class="text-lg font-semibold text-white mb-3">Why Toolgate?</h2>
+        <p class="text-sm text-muted leading-relaxed">
+          Every MCP billing SDK (Cloudflare <code class="text-accent-light text-xs">paidTool</code>, MCPay, Nevermined) treats payment as a binary gate:
+          <strong class="text-zinc-200">paid or blocked</strong>. That’s wrong for real products.
+          Toolgate gives developers <strong class="text-zinc-200">programmable control</strong> over what happens at the billing decision point —
+          degrade gracefully, allow a trial call, estimate cost first, or block with a helpful 402.
+          Plus fiat-first Stripe payments with prepaid credits, so no per-call payment handshake.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CODE EXAMPLE -->
   <section class="px-6 pb-24">
     <div class="max-w-2xl mx-auto">
-      <p class="text-center text-sm text-muted mb-4 font-medium uppercase tracking-wider">5 lines to monetize</p>
+      <p class="text-center text-sm text-muted mb-4 font-medium uppercase tracking-wider">5 lines to add billing</p>
       <div class="code-block bg-surface border border-border rounded-xl overflow-hidden glow">
         <div class="flex items-center gap-2 px-4 py-3 border-b border-border">
           <span class="w-3 h-3 rounded-full bg-red-500/60"></span>
@@ -142,11 +164,11 @@ mcp.registerAll(server);</code></pre>
     </div>
   </section>
 
-  <!-- ═══ HOW IT WORKS ═══ -->
+  <!-- HOW IT WORKS -->
   <section class="px-6 py-24 border-t border-border">
     <div class="max-w-4xl mx-auto">
       <h2 class="text-3xl font-bold text-white text-center mb-4">How it works</h2>
-      <p class="text-muted text-center mb-16 max-w-xl mx-auto">Toolgate sits inside your MCP server code. When an agent calls a paid tool, the SDK checks the caller's prepaid balance, executes the handler, and returns a receipt.</p>
+      <p class="text-muted text-center mb-16 max-w-xl mx-auto">Toolgate sits inside your MCP server. When an agent calls a paid tool, the SDK checks the caller's prepaid credit balance, executes the handler, and returns a receipt.</p>
 
       <div class="grid md:grid-cols-3 gap-8">
         <div class="text-center">
@@ -154,92 +176,118 @@ mcp.registerAll(server);</code></pre>
             <span class="text-accent font-bold text-lg">1</span>
           </div>
           <h3 class="font-semibold text-white mb-2">Install & wrap</h3>
-          <p class="text-sm text-muted leading-relaxed"><code class="text-accent-light text-xs">npm install toolgate</code> and wrap your tool handlers with <code class="text-accent-light text-xs">paidTool()</code>. Set a price — static, dynamic, or tiered.</p>
+          <p class="text-sm text-muted leading-relaxed"><code class="text-accent-light text-xs">npm install @tkorkmaz/toolgate</code> and wrap your tool handlers with <code class="text-accent-light text-xs">paidTool()</code>. Set a price &mdash; static, dynamic, or tiered.</p>
         </div>
         <div class="text-center">
           <div class="w-12 h-12 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center mx-auto mb-4">
             <span class="text-accent font-bold text-lg">2</span>
           </div>
-          <h3 class="font-semibold text-white mb-2">Callers top up</h3>
-          <p class="text-sm text-muted leading-relaxed">When balance is low, the SDK returns a Stripe Checkout link. Users top up once — subsequent calls are instant with no payment friction.</p>
+          <h3 class="font-semibold text-white mb-2">Callers top up once</h3>
+          <p class="text-sm text-muted leading-relaxed">When balance is low, the SDK returns a Stripe Checkout link. Users top up with a credit card &mdash; then all subsequent calls are instant. No per-call payment friction.</p>
         </div>
         <div class="text-center">
           <div class="w-12 h-12 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center mx-auto mb-4">
             <span class="text-accent font-bold text-lg">3</span>
           </div>
           <h3 class="font-semibold text-white mb-2">You get paid</h3>
-          <p class="text-sm text-muted leading-relaxed">Every paid call generates a receipt. Revenue flows to your Stripe account. Track everything with built-in metering and hooks.</p>
+          <p class="text-sm text-muted leading-relaxed">Every paid call generates a receipt. Revenue flows to your Stripe account via Connect. Track everything with built-in metering and hooks.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ═══ FEATURES ═══ -->
+  <!-- FEATURES -->
   <section class="px-6 py-24 border-t border-border">
     <div class="max-w-5xl mx-auto">
-      <h2 class="text-3xl font-bold text-white text-center mb-4">Full control when you need it</h2>
-      <p class="text-muted text-center mb-16 max-w-xl mx-auto">Not just a billing layer. Toolgate gives you execution-level control over how your tools make money.</p>
+      <h2 class="text-3xl font-bold text-white text-center mb-4">What no other MCP billing SDK does</h2>
+      <p class="text-muted text-center mb-16 max-w-xl mx-auto">Every alternative offers a binary gate: paid or blocked. Toolgate gives you programmable billing decisions and graceful execution control.</p>
 
       <div class="grid md:grid-cols-2 gap-6">
-        <!-- Dynamic Pricing -->
-        <div class="feature-card bg-surface border border-border rounded-xl p-6">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-9 h-9 rounded-lg bg-violet-500/10 flex items-center justify-center">
-              <svg class="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
-            </div>
-            <h3 class="font-semibold text-white">Dynamic Pricing</h3>
-          </div>
-          <p class="text-sm text-muted mb-4">Price based on input complexity, output size, or any custom logic. A proxy can't do this — it only sees the request envelope.</p>
-          <pre class="bg-bg rounded-lg p-3 overflow-x-auto"><code class="language-typescript text-xs">price: (input) => input.text.length * 0.001</code></pre>
-        </div>
-
-        <!-- Tiered Access -->
-        <div class="feature-card bg-surface border border-border rounded-xl p-6">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-              <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            </div>
-            <h3 class="font-semibold text-white">Free Tier + Premium</h3>
-          </div>
-          <p class="text-sm text-muted mb-4">Give users free calls per day/week/month, then charge for premium access. Convert free users to paying ones naturally.</p>
-          <pre class="bg-bg rounded-lg p-3 overflow-x-auto"><code class="language-typescript text-xs">tiers: { free: { limit: 10, period: "day" },
-        premium: { price: 0.03 } }</code></pre>
-        </div>
-
         <!-- Graceful Fallback -->
         <div class="feature-card bg-surface border border-border rounded-xl p-6">
           <div class="flex items-center gap-3 mb-4">
-            <div class="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center">
-              <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            <div class="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
             </div>
             <h3 class="font-semibold text-white">Graceful Fallback</h3>
           </div>
-          <p class="text-sm text-muted mb-4">When a caller can't pay, return a degraded response instead of a hard block. Better UX, higher conversion to paid.</p>
+          <p class="text-sm text-muted mb-4">When a caller can't pay, return a degraded response instead of a hard 402 block. Every other SDK hard-blocks. Toolgate converts.</p>
           <pre class="bg-bg rounded-lg p-3 overflow-x-auto"><code class="language-typescript text-xs">onPaymentFailed: "fallback",
 fallback: async (input) => basicResult(input)</code></pre>
         </div>
 
-        <!-- Execution Metering -->
+        <!-- Execution Policy -->
         <div class="feature-card bg-surface border border-border rounded-xl p-6">
           <div class="flex items-center gap-3 mb-4">
-            <div class="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
-              <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <div class="w-9 h-9 rounded-lg bg-violet-500/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
             </div>
-            <h3 class="font-semibold text-white">Execution Metering</h3>
+            <h3 class="font-semibold text-white">Execution Policy <span class="text-xs text-violet-400 font-normal ml-1">new</span></h3>
           </div>
-          <p class="text-sm text-muted mb-4">Charge based on actual execution time, tokens processed, or any metric. Postpaid metering calculates cost after the handler runs.</p>
+          <p class="text-sm text-muted mb-4">Programmable billing decisions per call. Execute, fallback, allow once, or return a cost estimate — based on balance, tier, usage, or input.</p>
+          <pre class="bg-bg rounded-lg p-3 overflow-x-auto"><code class="language-typescript text-xs">policy: { decide: async ({ balance, tier }) =>
+  balance >= 0.50 ? "execute" : "fallback" }</code></pre>
+        </div>
+
+        <!-- Prepaid Credits -->
+        <div class="feature-card bg-surface border border-border rounded-xl p-6">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+            </div>
+            <h3 class="font-semibold text-white">Prepaid Credits</h3>
+          </div>
+          <p class="text-sm text-muted mb-4">Users top up once via Stripe Checkout. Subsequent calls deduct from balance instantly &mdash; no per-call 402 handshake. Others do per-call crypto negotiation.</p>
+          <pre class="bg-bg rounded-lg p-3 overflow-x-auto"><code class="language-typescript text-xs">// User tops up $5 → gets 100 calls at $0.05 each
+// No payment friction on each call</code></pre>
+        </div>
+
+        <!-- Dynamic Pricing -->
+        <div class="feature-card bg-surface border border-border rounded-xl p-6">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+            </div>
+            <h3 class="font-semibold text-white">Dynamic Pricing</h3>
+          </div>
+          <p class="text-sm text-muted mb-4">Price based on input complexity, output size, or any custom logic. Others only support static per-tool pricing.</p>
+          <pre class="bg-bg rounded-lg p-3 overflow-x-auto"><code class="language-typescript text-xs">price: (input) => input.text.length * 0.001</code></pre>
+        </div>
+      </div>
+
+      <!-- Extra features row -->
+      <div class="grid md:grid-cols-2 gap-6 mt-6">
+        <div class="feature-card bg-surface border border-border rounded-xl p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-9 h-9 rounded-lg bg-rose-500/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <h3 class="font-semibold text-white">Postpaid Metering</h3>
+          </div>
+          <p class="text-sm text-muted mb-3">Charge after execution based on actual duration, tokens, or any metric. No other MCP billing SDK does this.</p>
           <pre class="bg-bg rounded-lg p-3 overflow-x-auto"><code class="language-typescript text-xs">price: "postpaid",
-meter: async (i, o, m) => ({ amount: m.durationMs * 0.0001 })</code></pre>
+meter: (i, o, m) => ({ amount: m.durationMs * 0.0001 })</code></pre>
+        </div>
+        <div class="feature-card bg-surface border border-border rounded-xl p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-9 h-9 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </div>
+            <h3 class="font-semibold text-white">Automatic Refund on Error</h3>
+          </div>
+          <p class="text-sm text-muted mb-3">If your handler throws, the caller's balance is automatically restored. Never charge for broken tools.</p>
+          <pre class="bg-bg rounded-lg p-3 overflow-x-auto"><code class="language-typescript text-xs">// Handler throws → balance refunded automatically
+// No manual refund logic needed</code></pre>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ═══ COMPARISON ═══ -->
+  <!-- COMPARISON TABLE -->
   <section class="px-6 py-24 border-t border-border">
-    <div class="max-w-4xl mx-auto">
+    <div class="max-w-5xl mx-auto">
       <h2 class="text-3xl font-bold text-white text-center mb-4">How Toolgate compares</h2>
-      <p class="text-muted text-center mb-12 max-w-xl mx-auto">Embedded SDK vs proxy vs marketplace — different architectures for different needs.</p>
+      <p class="text-muted text-center mb-12 max-w-xl mx-auto">Every other per-call billing SDK is a binary gate — paid or blocked. Toolgate is programmable, fiat-first, and never hard-fails.</p>
 
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -247,56 +295,72 @@ meter: async (i, o, m) => ({ amount: m.durationMs * 0.0001 })</code></pre>
             <tr class="border-b border-border">
               <th class="text-left py-3 px-4 text-muted font-medium"></th>
               <th class="text-center py-3 px-4 text-accent font-semibold">Toolgate</th>
-              <th class="text-center py-3 px-4 text-muted font-medium">xpay.sh</th>
-              <th class="text-center py-3 px-4 text-muted font-medium">MCPize</th>
+              <th class="text-center py-3 px-4 text-muted font-medium">Cloudflare paidTool</th>
+              <th class="text-center py-3 px-4 text-muted font-medium">MCPay</th>
+              <th class="text-center py-3 px-4 text-muted font-medium">Nevermined</th>
             </tr>
           </thead>
           <tbody>
             <tr class="table-row border-b border-border/50">
               <td class="py-3 px-4 text-zinc-400">Architecture</td>
               <td class="py-3 px-4 text-center text-white font-medium">Embedded SDK</td>
-              <td class="py-3 px-4 text-center">Reverse proxy</td>
-              <td class="py-3 px-4 text-center">Marketplace</td>
+              <td class="py-3 px-4 text-center">Embedded SDK</td>
+              <td class="py-3 px-4 text-center">Embedded SDK</td>
+              <td class="py-3 px-4 text-center">SDK + hosted</td>
             </tr>
             <tr class="table-row border-b border-border/50">
-              <td class="py-3 px-4 text-zinc-400">Setup</td>
-              <td class="py-3 px-4 text-center text-white">npm install + 5 lines</td>
-              <td class="py-3 px-4 text-center">Proxy URL config</td>
-              <td class="py-3 px-4 text-center">Platform signup</td>
+              <td class="py-3 px-4 text-zinc-400">Payment rail</td>
+              <td class="py-3 px-4 text-center"><span class="text-emerald-400 font-medium">Fiat (Stripe)</span></td>
+              <td class="py-3 px-4 text-center text-yellow-400">x402 / USDC</td>
+              <td class="py-3 px-4 text-center text-yellow-400">x402 / USDC</td>
+              <td class="py-3 px-4 text-center text-yellow-400">Stripe + crypto</td>
             </tr>
             <tr class="table-row border-b border-border/50">
-              <td class="py-3 px-4 text-zinc-400">Payment</td>
-              <td class="py-3 px-4 text-center text-white">Fiat (Stripe) + crypto</td>
-              <td class="py-3 px-4 text-center">USDC only</td>
-              <td class="py-3 px-4 text-center">Stripe subscription</td>
-            </tr>
-            <tr class="table-row border-b border-border/50">
-              <td class="py-3 px-4 text-zinc-400">Pricing model</td>
-              <td class="py-3 px-4 text-center text-white">Dynamic / tiered / metered</td>
-              <td class="py-3 px-4 text-center">Static per-tool</td>
-              <td class="py-3 px-4 text-center">Monthly subscription</td>
-            </tr>
-            <tr class="table-row border-b border-border/50">
-              <td class="py-3 px-4 text-zinc-400">Runtime enforcement</td>
-              <td class="py-3 px-4 text-center"><span class="text-emerald-400">Yes</span></td>
+              <td class="py-3 px-4 text-zinc-400">Graceful fallback</td>
               <td class="py-3 px-4 text-center"><span class="text-emerald-400">Yes</span></td>
               <td class="py-3 px-4 text-center"><span class="text-red-400">No</span></td>
-            </tr>
-            <tr class="table-row border-b border-border/50">
-              <td class="py-3 px-4 text-zinc-400">Fallback responses</td>
-              <td class="py-3 px-4 text-center"><span class="text-emerald-400">Yes</span></td>
               <td class="py-3 px-4 text-center"><span class="text-red-400">No</span></td>
               <td class="py-3 px-4 text-center"><span class="text-red-400">No</span></td>
             </tr>
             <tr class="table-row border-b border-border/50">
-              <td class="py-3 px-4 text-zinc-400">Execution metering</td>
+              <td class="py-3 px-4 text-zinc-400">Execution Policy</td>
               <td class="py-3 px-4 text-center"><span class="text-emerald-400">Yes</span></td>
+              <td class="py-3 px-4 text-center"><span class="text-red-400">No</span></td>
+              <td class="py-3 px-4 text-center"><span class="text-red-400">No</span></td>
+              <td class="py-3 px-4 text-center"><span class="text-red-400">No</span></td>
+            </tr>
+            <tr class="table-row border-b border-border/50">
+              <td class="py-3 px-4 text-zinc-400">Prepaid balance</td>
+              <td class="py-3 px-4 text-center"><span class="text-emerald-400">Yes</span></td>
+              <td class="py-3 px-4 text-center"><span class="text-red-400">No</span></td>
+              <td class="py-3 px-4 text-center"><span class="text-red-400">No</span></td>
+              <td class="py-3 px-4 text-center"><span class="text-red-400">No</span></td>
+            </tr>
+            <tr class="table-row border-b border-border/50">
+              <td class="py-3 px-4 text-zinc-400">Dynamic pricing</td>
+              <td class="py-3 px-4 text-center"><span class="text-emerald-400">Yes</span></td>
+              <td class="py-3 px-4 text-center"><span class="text-red-400">No</span></td>
+              <td class="py-3 px-4 text-center"><span class="text-red-400">No</span></td>
+              <td class="py-3 px-4 text-center"><span class="text-red-400">No</span></td>
+            </tr>
+            <tr class="table-row border-b border-border/50">
+              <td class="py-3 px-4 text-zinc-400">Postpaid metering</td>
+              <td class="py-3 px-4 text-center"><span class="text-emerald-400">Yes</span></td>
+              <td class="py-3 px-4 text-center"><span class="text-red-400">No</span></td>
+              <td class="py-3 px-4 text-center"><span class="text-red-400">No</span></td>
+              <td class="py-3 px-4 text-center"><span class="text-red-400">No</span></td>
+            </tr>
+            <tr class="table-row border-b border-border/50">
+              <td class="py-3 px-4 text-zinc-400">Lifecycle hooks</td>
+              <td class="py-3 px-4 text-center"><span class="text-emerald-400">Yes</span></td>
+              <td class="py-3 px-4 text-center"><span class="text-red-400">No</span></td>
               <td class="py-3 px-4 text-center"><span class="text-red-400">No</span></td>
               <td class="py-3 px-4 text-center"><span class="text-red-400">No</span></td>
             </tr>
             <tr class="table-row">
-              <td class="py-3 px-4 text-zinc-400">Lifecycle hooks</td>
+              <td class="py-3 px-4 text-zinc-400">Refund on error</td>
               <td class="py-3 px-4 text-center"><span class="text-emerald-400">Yes</span></td>
+              <td class="py-3 px-4 text-center"><span class="text-red-400">No</span></td>
               <td class="py-3 px-4 text-center"><span class="text-red-400">No</span></td>
               <td class="py-3 px-4 text-center"><span class="text-red-400">No</span></td>
             </tr>
@@ -306,11 +370,11 @@ meter: async (i, o, m) => ({ amount: m.durationMs * 0.0001 })</code></pre>
     </div>
   </section>
 
-  <!-- ═══ CTA ═══ -->
+  <!-- CTA -->
   <section class="px-6 py-24 border-t border-border">
     <div class="max-w-2xl mx-auto text-center">
-      <h2 class="text-3xl font-bold text-white mb-4">Start monetizing in minutes</h2>
-      <p class="text-muted mb-8">Toolgate is open source and free to start. Add usage-based payments to your MCP tools today.</p>
+      <h2 class="text-3xl font-bold text-white mb-4">Start billing in minutes</h2>
+      <p class="text-muted mb-8">Toolgate is open source and free to start. Make your paid MCP tools reliable today.</p>
 
       <div class="install-box inline-flex items-center gap-3 bg-surface border border-border rounded-lg px-5 py-3 mb-8 font-mono text-sm" onclick="copyInstall(this)">
         <span class="text-muted select-none">$</span>
@@ -332,7 +396,7 @@ meter: async (i, o, m) => ({ amount: m.durationMs * 0.0001 })</code></pre>
     </div>
   </section>
 
-  <!-- ═══ FOOTER ═══ -->
+  <!-- FOOTER -->
   <footer class="px-6 py-12 border-t border-border">
     <div class="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
       <div class="flex items-center gap-2">

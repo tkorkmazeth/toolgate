@@ -1,6 +1,8 @@
 # Toolgate
 
-Billing-aware execution SDK for paid MCP tools — graceful fallback, post-execution metering, and programmable billing logic.
+Billing-aware execution SDK for paid MCP tools — graceful fallback, programmable billing logic, and rail-agnostic metering.
+
+Works with Stripe (fiat), MPP (Stripe+Tempo), and x402 (crypto) — or bring your own rail.
 
 ```
 npm install @tkorkmaz/toolgate
@@ -414,6 +416,32 @@ Handler throws  ──→   Refund balance, return error
 
 ---
 
+## Rail-Agnostic Architecture
+
+Toolgate separates billing logic from payment rails. Register any `RailAdapter` to control how 402 responses are enriched:
+
+| Rail | Adapter | Status |
+| ---- | ------- | ------ |
+| Stripe (fiat) | `StripeRailAdapter` | Stable |
+| MPP (HTTP 402, IETF) | `MppRailAdapter` | Stub |
+| x402 (USDC/crypto) | `X402RailAdapter` | Stub |
+| Custom | Implement `RailAdapter` | Always |
+
+```typescript
+import { ToolGate, StripeRailAdapter } from '@tkorkmaz/toolgate';
+
+const gate = new ToolGate({
+  ledger,
+  railAdapters: [
+    new StripeRailAdapter({ publishableKey: process.env.STRIPE_PK! })
+  ]
+});
+```
+
+When balance is insufficient, each registered adapter contributes a `SettlementAction` to the 402 response — letting the caller pick the rail that suits them.
+
+---
+
 ## LedgerAdapter (custom storage)
 
 Implement this interface to use any storage backend:
@@ -439,6 +467,8 @@ interface LedgerAdapter {
 | Free         | 1,000       | 10%          |
 | Pro $29/mo   | 50,000      | 5%           |
 | Scale $99/mo | Unlimited   | 3%           |
+
+> **Note:** Platform fees apply per successful tool call. Rail transaction fees depend on the chosen adapter (Stripe, MPP, or x402) and are charged by that provider separately.
 
 [Sign up at toolgate.dev →](https://toolgate.dev)
 

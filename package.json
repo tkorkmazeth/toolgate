@@ -1,7 +1,7 @@
 {
   "name": "@tkorkmaz/toolgate",
   "version": "0.1.0-alpha.1",
-  "description": "Billing-aware execution SDK for paid MCP tools — graceful fallback, post-execution metering, and programmable billing logic.",
+  "description": "Billing-aware execution SDK for paid MCP tools — graceful fallback, programmable billing logic, and rail-agnostic metering. Works with Stripe, MPP, and x402.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -35,7 +35,11 @@
     "prepaid",
     "agent",
     "llm",
-    "model-context-protocol"
+    "model-context-protocol",
+    "mpp",
+    "x402",
+    "rail-agnostic",
+    "agentic-commerce"
   ],
   "license": "MIT",
   "repository": {

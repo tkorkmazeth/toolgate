@@ -10,6 +10,8 @@ export interface ToolGateConfig {
   ledger?: LedgerAdapter;
   /** Event hooks for observability */
   hooks?: GlobalHooks;
+  /** Payment rail adapters for 402 settlement options */
+  railAdapters?: RailAdapter[];
   /**
    * Base URL for Stripe top-up redirect links included in 402 responses.
    * The SDK appends `?publisher=...&caller=...&amount=...` to this URL.
@@ -190,6 +192,8 @@ export interface PaymentRequiredResponse {
   topUpUrl?: string;
   /** x402 challenge for crypto-native agents */
   x402Challenge?: Record<string, unknown>;
+  /** Settlement options from registered rail adapters */
+  settlements?: SettlementAction[];
   /** Accepts array for multi-rail */
   acceptedRails: PaymentRail[];
 }
@@ -234,8 +238,47 @@ export interface DeductMeta {
 }
 
 export interface CreditMeta {
-  source: "stripe" | "x402" | "manual";
+  source: "stripe" | "x402" | "mpp" | "manual";
   reference: string;
+}
+
+// ─── Rail Adapter (settlement layer abstraction) ──────────
+
+/**
+ * A RailAdapter handles payment settlement for a specific rail.
+ * It converts a payment requirement into a settlement action
+ * (e.g., Stripe Checkout URL, MPP session, x402 challenge).
+ *
+ * This is NOT the ledger — it's the bridge between "payment needed"
+ * and "payment settled". The ledger gets credited when settlement completes.
+ */
+export interface RailAdapter {
+  /** Which rail this adapter handles */
+  rail: PaymentRail;
+
+  /**
+   * Build a settlement action for the given payment requirement.
+   * Returns a URL, challenge, or session that the caller can use to pay.
+   */
+  createSettlement(params: {
+    callerId: string;
+    amount: number;
+    currency: string;
+    toolName: string;
+    publisherKey: string;
+  }): Promise<SettlementAction>;
+}
+
+export interface SettlementAction {
+  rail: PaymentRail;
+  /** URL for the caller to complete payment (Stripe Checkout, MPP session, etc.) */
+  url?: string;
+  /** x402 challenge payload for crypto-native agents */
+  x402Challenge?: Record<string, unknown>;
+  /** MPP session ID for streaming micropayments */
+  mppSessionId?: string;
+  /** Expiration timestamp (seconds since epoch) */
+  expiresAt?: number;
 }
 
 // ─── Global Hooks ──────────────────────────────────────────

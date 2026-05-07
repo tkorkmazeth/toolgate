@@ -29,6 +29,8 @@ export type {
   PolicyDecision,
   PolicyContext,
   CostEstimate,
+  RailAdapter,
+  SettlementAction,
 } from "./types.js";
 
 export type { McpAdapterConfig, McpPaidToolConfig } from "./mcp-adapter.js";

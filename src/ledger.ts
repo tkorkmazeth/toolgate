@@ -2,7 +2,6 @@ import type { LedgerAdapter, DeductMeta, CreditMeta } from "./types.js";
 
 /**
  * In-memory ledger for MVP / local development.
- * Replace with DB-backed adapter (Turso, D1, Postgres) for production.
  */
 export class InMemoryLedger implements LedgerAdapter {
   private balances = new Map<string, number>();
@@ -19,7 +18,11 @@ export class InMemoryLedger implements LedgerAdapter {
     return this.balances.get(callerId) ?? 0;
   }
 
-  async deduct(callerId: string, amount: number, meta: DeductMeta): Promise<boolean> {
+  async deduct(
+    callerId: string,
+    amount: number,
+    meta: DeductMeta,
+  ): Promise<boolean> {
     const current = this.balances.get(callerId) ?? 0;
     if (current < amount) return false;
 
@@ -32,15 +35,14 @@ export class InMemoryLedger implements LedgerAdapter {
       timestamp: Date.now(),
     });
 
-    // Increment usage counter
-    const period = currentPeriod("day");
-    const usageKey = `${callerId}:${meta.tool}:${period}`;
-    this.usage.set(usageKey, (this.usage.get(usageKey) ?? 0) + 1);
-
     return true;
   }
 
-  async credit(callerId: string, amount: number, meta: CreditMeta): Promise<void> {
+  async credit(
+    callerId: string,
+    amount: number,
+    meta: CreditMeta,
+  ): Promise<void> {
     const current = this.balances.get(callerId) ?? 0;
     this.balances.set(callerId, round(current + amount));
     this.transactions.push({
@@ -52,12 +54,20 @@ export class InMemoryLedger implements LedgerAdapter {
     });
   }
 
-  async getUsage(callerId: string, tool: string, period: string): Promise<number> {
+  async getUsage(
+    callerId: string,
+    tool: string,
+    period: string,
+  ): Promise<number> {
     const key = `${callerId}:${tool}:${currentPeriod(period)}`;
     return this.usage.get(key) ?? 0;
   }
 
-  async incrementUsage(callerId: string, tool: string, period: string): Promise<void> {
+  async incrementUsage(
+    callerId: string,
+    tool: string,
+    period: string,
+  ): Promise<void> {
     const key = `${callerId}:${tool}:${currentPeriod(period)}`;
     this.usage.set(key, (this.usage.get(key) ?? 0) + 1);
   }

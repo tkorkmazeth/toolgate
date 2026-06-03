@@ -1,133 +1,77 @@
+import { randomBytes } from "node:crypto";
 import type {
   RailAdapter,
   ChallengeParams,
   SettlementAction,
   PaymentProof,
   VerificationResult,
+  VerificationContext,
+  SettlementResult,
+  MppMethodConfig,
 } from "../types.js";
 
-// ─── MPP Rail Adapter ─────────────────────────────────────
-
-/**
- * MPP (Machine Payments Protocol) rail adapter.
- * Uses `mppx` package to create payment challenges and verify payments.
- *
- * Install: npm i mppx
- *
- * Supports payment methods:
- * - stripe({ secretKey }) — fiat via Shared Payment Tokens (SPT)
- * - tempo({ currency, recipient }) — crypto via Tempo blockchain
- *
- * @see https://mpp.dev/sdk/typescript
- */
 export interface MppRailConfig {
-  /**
-   * mppx payment methods array.
-   * Import from 'mppx/server':
-   *   import { stripe, tempo } from 'mppx/server'
-   *
-   * Example:
-   *   methods: [stripe({ secretKey: process.env.STRIPE_SECRET_KEY! })]
-   *   methods: [stripe({ secretKey: '...' }), tempo({ currency: '0x...', recipient: '0x...' })]
-   */
-  methods: unknown[];
-
-  /**
-   * Currency for MPP charges.
-   * For Stripe: "usd", "eur", etc.
-   * For Tempo: token contract address.
-   */
-  currency?: string;
+  /** Typed MPP payment methods. Must contain at least one entry. */
+  methods: MppMethodConfig[];
+  /** Optional mppx instance for in-process payment verification only. */
+  mppxInstance?: unknown;
 }
 
 export class MppRailAdapter implements RailAdapter {
   rail = "mpp" as const;
-  private mppxInstance: unknown;
   private config: MppRailConfig;
 
   constructor(config: MppRailConfig) {
-    this.config = config;
-
-    // Lazy-load mppx — it's a peer dependency
-    let MppxLib: { Mppx: { create: (opts: unknown) => unknown } };
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      MppxLib = require("mppx/server");
-    } catch {
-      throw new Error(
-        "mppx package not found. Install it: npm install mppx\n" +
-          "mppx is required for MPP rail support.\n" +
-          "Docs: https://mpp.dev/sdk/typescript",
-      );
+    if (!config.methods || config.methods.length === 0) {
+      throw new Error("MppRailConfig requires at least one payment method");
     }
-
-    this.mppxInstance = MppxLib.Mppx.create({
-      methods: config.methods,
-    });
+    this.config = config;
   }
 
   async createChallenge(params: ChallengeParams): Promise<SettlementAction> {
-    const mppx = this.mppxInstance as {
-      charge: (opts: { amount: string }) => (req: Request) => Promise<Response>;
-    };
+    const challengeId = `tg_mpp_${Date.now().toString(36)}_${randomBytes(4).toString("hex")}`;
 
-    const chargeHandler = mppx.charge({ amount: String(params.amount) });
-    const syntheticRequest = new Request("https://toolgate.internal/charge", {
-      method: "GET",
-      headers: {
-        "x-toolgate-caller": params.callerId,
-        "x-toolgate-tool": params.toolName,
-      },
+    const challenges = this.config.methods.map((method, index) => {
+      const requestPayload = {
+        amount: this.convertAmount(params.amount, method),
+        currency: this.getCurrencyForRequest(method),
+        recipient: this.getRecipient(method),
+        description: params.toolName,
+        metadata: { toolName: params.toolName, callerId: params.callerId },
+      };
+      const requestBase64 = Buffer.from(
+        JSON.stringify(requestPayload),
+      ).toString("base64url");
+      return {
+        id: `${challengeId}_${index}`,
+        realm: "toolgate",
+        method: method.name,
+        intent: "charge" as const,
+        request: requestBase64,
+      };
     });
 
-    try {
-      const response = await chargeHandler(syntheticRequest);
+    const wwwAuthenticate = challenges.map(
+      (ch) =>
+        `Payment id="${ch.id}", realm="${ch.realm}", method="${ch.method}", intent="${ch.intent}", request="${ch.request}"`,
+    );
 
-      if (response.status === 402) {
-        // MPP uses WWW-Authenticate header with "Payment" scheme
-        const challengeHeader = response.headers.get("www-authenticate");
-
-        return {
-          rail: "mpp",
-          mppChallenge: {
-            protocol: "mpp",
-            wwwAuthenticate: challengeHeader,
-            amount: params.amount,
-            currency: params.currency ?? this.config.currency ?? "usd",
-            headers: Object.fromEntries(response.headers.entries()),
-          },
-          expiresAt: Math.floor(Date.now() / 1000) + 60 * 60, // 1 hour
-        };
-      }
-
-      return {
-        rail: "mpp",
-        mppChallenge: {
-          protocol: "mpp",
-          amount: params.amount,
-          currency: params.currency ?? this.config.currency ?? "usd",
-          error: "unexpected_mppx_response",
-          status: response.status,
-        },
-      };
-    } catch (error) {
-      return {
-        rail: "mpp",
-        mppChallenge: {
-          protocol: "mpp",
-          amount: params.amount,
-          currency: params.currency ?? this.config.currency ?? "usd",
-          error: (error as Error).message,
-        },
-      };
-    }
+    return {
+      rail: "mpp",
+      mppChallenge: {
+        protocol: "mpp",
+        challenges,
+        wwwAuthenticate,
+      },
+      expiresAt: Math.floor(Date.now() / 1000) + 3600,
+    };
   }
 
   async verifyPayment(proof: PaymentProof): Promise<VerificationResult | null> {
-    if (!proof.mppPaymentHeader) return null;
+    if (!proof.mppPaymentHeader || !this.config.mppxInstance) return null;
 
     try {
-      const mppx = this.mppxInstance as {
+      const mppx = this.config.mppxInstance as {
         charge: (opts: {
           amount: string;
         }) => (req: Request) => Promise<Response>;
@@ -139,8 +83,6 @@ export class MppRailAdapter implements RailAdapter {
         },
       });
 
-      // Use charge({ amount: "0" }) to check whether the credential is valid —
-      // mppx won't return 402 if the Payment header is accepted.
       const chargeHandler = mppx.charge({ amount: "0" });
       const response = await chargeHandler(verifyRequest);
 
@@ -148,8 +90,8 @@ export class MppRailAdapter implements RailAdapter {
         return {
           verified: true,
           rail: "mpp",
-          amount: 0, // actual amount comes from the credential
-          currency: this.config.currency ?? "usd",
+          amount: 0,
+          currency: "usd",
           receiptId: `mpp_${Date.now().toString(36)}`,
         };
       }
@@ -158,5 +100,33 @@ export class MppRailAdapter implements RailAdapter {
     } catch {
       return null;
     }
+  }
+
+  async settlePayment(
+    _proof: PaymentProof,
+    _context?: VerificationContext,
+  ): Promise<SettlementResult | null> {
+    // MPP settlement happens via webhook or mppx internally.
+    // No explicit settle call needed from Toolgate.
+    return null;
+  }
+
+  private convertAmount(amount: number, method: MppMethodConfig): number {
+    if (method.name === "tempo") return Math.round(amount * 1e6);
+    if (method.name === "stripe") return Math.round(amount * 100);
+    return amount;
+  }
+
+  private getCurrencyForRequest(method: MppMethodConfig): string {
+    if (method.name === "tempo")
+      return (method as { name: "tempo"; currency: string }).currency;
+    return "usd";
+  }
+
+  private getRecipient(method: MppMethodConfig): string | undefined {
+    if (method.name === "tempo")
+      return (method as { name: "tempo"; currency: string; recipient: string })
+        .recipient;
+    return undefined;
   }
 }

@@ -1,5 +1,16 @@
 import type { ToolGate } from "./toolgate.js";
-import type { PaidToolConfig, ToolCallResult, PriceSpec, ExecutionPolicy, PolicyContext, CostEstimate } from "./types.js";
+import type {
+  PaidToolConfig,
+  ToolCallResult,
+  PriceSpec,
+  ExecutionPolicy,
+  PolicyContext,
+  CostEstimate,
+  PaymentProof,
+  VerificationResult,
+  VerificationContext,
+  RailAdapter,
+} from "./types.js";
 import type {
   McpToolResult,
   McpToolRegistration,
@@ -104,7 +115,8 @@ export class McpAdapter {
       description: config.description,
       price: config.price,
       tiers: config.tiers,
-      onPaymentFailed: config.onPaymentFailed ?? (config.fallback ? "fallback" : "block"),
+      onPaymentFailed:
+        config.onPaymentFailed ?? (config.fallback ? "fallback" : "block"),
 
       // Wrap MCP handler to match ToolGate's (input, ctx) signature
       handler: async (input) => {
@@ -134,10 +146,60 @@ export class McpAdapter {
     // Build the MCP handler that wraps ToolGate execution
     const mcpHandler = async (
       args: Record<string, unknown>,
-      extra: McpCallExtra
+      extra: McpCallExtra,
     ): Promise<McpToolResult> => {
       const callerId = this.config.getCallerId(args, extra);
+
+      // Extract payment proof from _meta, verify, credit, then settle after execution
+      const meta = extra._meta;
+      let railAdapter: RailAdapter | undefined;
+      let railProof: PaymentProof | undefined;
+      let verificationContext: VerificationContext | undefined;
+
+      if (meta) {
+        let proof: PaymentProof | undefined;
+        const mppCredential = meta["org.paymentauth/credential"];
+        if (mppCredential) {
+          proof = { rail: "mpp", mppPaymentHeader: String(mppCredential) };
+        } else {
+          const tgMeta = meta.toolgate as Record<string, unknown> | undefined;
+          if (tgMeta?.x402Payment) {
+            const actionId = tgMeta.x402ActionId as string | undefined;
+            proof = {
+              rail: "x402",
+              x402PaymentPayload: tgMeta.x402Payment as Record<string, unknown>,
+            };
+            verificationContext = { actionId };
+          }
+        }
+        if (proof) {
+          const adapter = this.gate.getRailAdapter(proof.rail);
+          if (adapter) {
+            const verification: VerificationResult | null =
+              (await adapter.verifyPayment?.(proof, verificationContext)) ??
+              null;
+            if (verification?.verified) {
+              await this.gate.ledger.credit(callerId, verification.amount, {
+                source: proof.rail,
+                reference:
+                  verification.receiptId ?? `rail_${Date.now().toString(36)}`,
+              });
+              railAdapter = adapter;
+              railProof = proof;
+            }
+          }
+        }
+      }
+
       const result: ToolCallResult = await gateTool(args, callerId);
+
+      // Settle on-chain after successful execution
+      if (result.success && railAdapter?.settlePayment && railProof) {
+        await railAdapter
+          .settlePayment(railProof, verificationContext)
+          .catch(() => null);
+      }
+
       return this.formatMcpResult(result, name);
     };
 
@@ -161,9 +223,9 @@ export class McpAdapter {
       server.tool(
         reg.name,
         Object.fromEntries(
-          Object.entries(reg.inputSchema.properties).map(([k, v]) => [k, v])
+          Object.entries(reg.inputSchema.properties).map(([k, v]) => [k, v]),
         ),
-        reg.handler
+        reg.handler,
       );
     }
   }
@@ -184,7 +246,11 @@ export class McpAdapter {
 
   // ─── Internal: Format ToolCallResult → McpToolResult ───
 
-  private formatMcpResult(result: ToolCallResult, toolName: string): McpToolResult {    // ── Cost Estimate (policy "estimate" decision) ──────────
+  private formatMcpResult(
+    result: ToolCallResult,
+    toolName: string,
+  ): McpToolResult {
+    // ── Cost Estimate (policy "estimate" decision) ──────────
     if (
       result.success &&
       result.output !== null &&
@@ -261,16 +327,39 @@ export class McpAdapter {
         ],
         isError: true,
         _meta: this.config.includeMeta
-          ? {
-              toolgate: {
-                paymentRequired: true,
-                amount: pr.amount,
-                currency: pr.currency,
-                acceptedRails: pr.acceptedRails,
-                topUpUrl: pr.topUpUrl ?? null,
-                x402Challenge: pr.x402Challenge ?? null,
-              },
-            }
+          ? (() => {
+              const mcpMeta: Record<string, unknown> = {
+                toolgate: {
+                  paymentRequired: true,
+                  amount: pr.amount,
+                  currency: pr.currency,
+                  acceptedRails: pr.acceptedRails,
+                  topUpUrl: pr.topUpUrl ?? null,
+                },
+              };
+              if (
+                pr.settlements?.some((s) => s.rail === "mpp" && s.mppChallenge)
+              ) {
+                mcpMeta["org.paymentauth/challenges"] = pr.settlements.find(
+                  (s) => s.rail === "mpp",
+                )!.mppChallenge!.challenges;
+              }
+              if (
+                pr.settlements?.some(
+                  (s) => s.rail === "x402" && s.x402PaymentRequired,
+                )
+              ) {
+                const x402Settlement = pr.settlements.find(
+                  (s) => s.rail === "x402",
+                )!;
+                mcpMeta["x402"] = x402Settlement.x402PaymentRequired;
+                if (x402Settlement.actionId) {
+                  (mcpMeta.toolgate as Record<string, unknown>).x402ActionId =
+                    x402Settlement.actionId;
+                }
+              }
+              return mcpMeta;
+            })()
           : undefined,
       };
     }
@@ -281,7 +370,9 @@ export class McpAdapter {
         {
           type: "text",
           text: `Error executing "${toolName}": ${
-            typeof result.output === "object" && result.output !== null && "error" in result.output
+            typeof result.output === "object" &&
+            result.output !== null &&
+            "error" in result.output
               ? (result.output as Record<string, unknown>).error
               : "Unknown error"
           }`,
@@ -310,7 +401,9 @@ export class McpAdapter {
     if (config.tiers) {
       const free = config.tiers.free;
       if (free) {
-        parts.push(`[Pricing: ${free.limit} free calls per ${free.period}, then paid]`);
+        parts.push(
+          `[Pricing: ${free.limit} free calls per ${free.period}, then paid]`,
+        );
       }
     } else if (config.price !== undefined) {
       if (typeof config.price === "number") {
@@ -334,7 +427,7 @@ export class McpAdapter {
 
 function defaultGetCallerId(
   _args: Record<string, unknown>,
-  extra: McpCallExtra
+  extra: McpCallExtra,
 ): string {
   return extra.sessionId ?? "anonymous";
 }
@@ -390,7 +483,7 @@ function serializeOutput(output: unknown): McpToolResult["content"] {
  */
 export function createMcpAdapter(
   gate: ToolGate,
-  config?: McpAdapterConfig
+  config?: McpAdapterConfig,
 ): McpAdapter {
   return new McpAdapter(gate, config);
 }

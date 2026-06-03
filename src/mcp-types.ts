@@ -3,7 +3,6 @@
  *
  * These mirror @modelcontextprotocol/sdk types so the adapter
  * works standalone without the npm dependency in dev.
- * In production, import from the real SDK instead.
  */
 
 // ─── MCP Tool Content ──────────────────────────────────────
@@ -36,7 +35,10 @@ export interface McpToolRegistration {
   name: string;
   description: string;
   inputSchema: JsonSchema;
-  handler: (args: Record<string, unknown>, extra: McpCallExtra) => Promise<McpToolResult>;
+  handler: (
+    args: Record<string, unknown>,
+    extra: McpCallExtra,
+  ) => Promise<McpToolResult>;
 }
 
 export interface McpCallExtra {
@@ -47,6 +49,9 @@ export interface McpCallExtra {
     type: "stdio" | "sse" | "streamable-http";
     remoteAddress?: string;
   };
+  /** Payment proof and other structured metadata from the MCP client */
+  _meta?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 // ─── JSON Schema (minimal) ─────────────────────────────────
@@ -72,6 +77,9 @@ export interface McpServerLike {
   tool(
     name: string,
     schema: Record<string, unknown>,
-    handler: (args: Record<string, unknown>, extra: McpCallExtra) => Promise<McpToolResult>
+    handler: (
+      args: Record<string, unknown>,
+      extra: McpCallExtra,
+    ) => Promise<McpToolResult>,
   ): void;
 }

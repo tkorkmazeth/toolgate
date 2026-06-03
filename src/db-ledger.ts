@@ -1,6 +1,6 @@
 import type { LedgerAdapter, DeductMeta, CreditMeta } from "./types.js";
 
-// ─── DB abstraction ────────────────────────────────────────
+// DB abstraction layer to support multiple SQL backends (D1, Turso, SQLite).
 
 /**
  * Minimal query interface compatible with:
@@ -124,10 +124,9 @@ export class DbLedger implements LedgerAdapter {
       .run();
 
     if (!result.success || (result.changes ?? 0) === 0) {
-      return false; // Insufficient balance — nothing changed.
+      return false;
     }
 
-    // Record transaction.
     await this.db
       .prepare(
         `INSERT INTO tg_transactions
@@ -135,18 +134,6 @@ export class DbLedger implements LedgerAdapter {
          VALUES (?, 'deduct', ?, ?, ?, ?, ?)`,
       )
       .bind(meta.callId, callerId, amount, meta.tool, meta.callId, now)
-      .run();
-
-    // Increment daily usage counter (mirroring InMemoryLedger behaviour).
-    const period = currentPeriod("day");
-    await this.db
-      .prepare(
-        `INSERT INTO tg_usage (caller_id, tool, period, count, updated_at)
-         VALUES (?, ?, ?, 1, ?)
-         ON CONFLICT(caller_id, tool, period)
-         DO UPDATE SET count = count + 1, updated_at = ?`,
-      )
-      .bind(callerId, meta.tool, period, now, now)
       .run();
 
     return true;

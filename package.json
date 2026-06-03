@@ -1,7 +1,7 @@
 {
   "name": "@tkorkmaz/toolgate",
   "version": "0.2.0-alpha.1",
-  "description": "Billing-aware execution SDK for paid MCP tools — graceful fallback, programmable billing logic, and rail-agnostic metering. Works with Stripe, MPP, and x402.",
+  "description": "Paid action recovery & execution-control layer for AI agent tools — idempotent execution, failure recovery, graceful fallback, and rail-agnostic billing. Works with Stripe, MPP, and x402.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,7 +21,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "node --test src/__tests__/paidTool.test.mjs src/__tests__/mcp-adapter.test.mjs src/__tests__/stripe.test.mjs src/__tests__/webhook-handler.test.mjs src/__tests__/db-ledger.test.mjs src/__tests__/rail-adapter.test.mjs",
+    "test": "node --test src/__tests__/paidTool.test.mjs src/__tests__/mcp-adapter.test.mjs src/__tests__/stripe.test.mjs src/__tests__/webhook-handler.test.mjs src/__tests__/db-ledger.test.mjs src/__tests__/rail-adapter.test.mjs src/__tests__/policy.test.mjs src/__tests__/protocol-compliance.test.mjs src/__tests__/idempotency.test.mjs src/__tests__/trace.test.mjs",
     "prepublishOnly": "npm run build && npm test"
   },
   "keywords": [

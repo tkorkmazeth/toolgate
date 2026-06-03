@@ -13,8 +13,16 @@ import type {
   RailAdapter,
   SettlementAction,
   PaymentMode,
+  ExecutionTrace,
+  IdempotencyRecord,
+  IdempotencyStatus,
+  IdempotencyStore,
+  TraceStore,
+  RecoveryAction,
 } from "./types.js";
 import { InMemoryLedger } from "./ledger.js";
+import { InMemoryIdempotencyStore } from "./idempotency.js";
+import { InMemoryTraceStore } from "./trace-store.js";
 
 // ─── ToolGate Core ─────────────────────────────────────────
 
@@ -29,6 +37,9 @@ export class ToolGate {
     hooks: ToolGateConfig["hooks"];
     railAdapters: RailAdapter[];
     paymentMode: PaymentMode;
+    idempotencyStore: IdempotencyStore;
+    traceStore: TraceStore;
+    idempotencyTtlSeconds: number;
   };
 
   private tools = new Map<string, PaidToolConfig>();
@@ -45,6 +56,10 @@ export class ToolGate {
       hooks: config.hooks,
       railAdapters: config.railAdapters ?? [],
       paymentMode: config.paymentMode ?? "hybrid",
+      idempotencyStore:
+        config.idempotencyStore ?? new InMemoryIdempotencyStore(),
+      traceStore: config.traceStore ?? new InMemoryTraceStore(),
+      idempotencyTtlSeconds: config.idempotencyTtlSeconds ?? 3600,
     };
   }
 
@@ -68,9 +83,38 @@ export class ToolGate {
     return execute;
   }
 
+  /**
+   * Alias for paidTool(). Same engine, same config.
+   * Use paidAction() to reflect that Toolgate handles any paid action,
+   * not just MCP tools.
+   */
+  paidAction(toolConfig: PaidToolConfig) {
+    return this.paidTool(toolConfig);
+  }
+
   /** Get the ledger (useful for crediting balances externally) */
   get ledger(): LedgerAdapter {
     return this.config.ledger;
+  }
+
+  /** Get the ledger as a method (alias for .ledger getter) */
+  getLedger(): LedgerAdapter {
+    return this.config.ledger;
+  }
+
+  /** Get a specific rail adapter by rail name */
+  getRailAdapter(rail: PaymentRail): RailAdapter | undefined {
+    return this.config.railAdapters?.find((a) => a.rail === rail);
+  }
+
+  /** Access the trace store (for querying execution history) */
+  get traces(): TraceStore {
+    return this.config.traceStore;
+  }
+
+  /** Access the idempotency store */
+  get idempotency(): IdempotencyStore {
+    return this.config.idempotencyStore;
   }
 
   /** List all registered tools with pricing info */
@@ -90,6 +134,81 @@ export class ToolGate {
     callerId: string,
   ): Promise<ToolCallResult> {
     const callId = generateCallId();
+    const now = Date.now();
+
+    // ── Step 0: Idempotency check ─────────────────────────
+    const idempotencyKey = this.resolveIdempotencyKey(tool, input, callerId);
+    const inputHash = hashSync(input);
+
+    const existingRecord =
+      await this.config.idempotencyStore.get(idempotencyKey);
+    if (existingRecord) {
+      return this.handleDuplicate(
+        tool,
+        input,
+        callerId,
+        existingRecord,
+        idempotencyKey,
+      );
+    }
+
+    // Mark as in_progress
+    await this.config.idempotencyStore.set({
+      key: idempotencyKey,
+      callerId,
+      toolName: tool.name,
+      inputHash,
+      status: "in_progress",
+      traceId: callId,
+      createdAt: now,
+      updatedAt: now,
+      expiresAt: now + this.config.idempotencyTtlSeconds * 1000,
+    });
+
+    // ── Initialize trace ──────────────────────────────────
+    const trace: ExecutionTrace = {
+      traceId: callId,
+      idempotencyKey,
+      callerId,
+      toolName: tool.name,
+      inputHash,
+      currency: this.config.defaultCurrency,
+      decision: "execute",
+      handlerStatus: "not_started",
+      fallbackUsed: false,
+      chargeStatus: "none",
+      createdAt: now,
+      updatedAt: now,
+      events: [{ timestamp: now, event: "trace_created" }],
+    };
+
+    // Helper to finalize trace + idempotency record before returning
+    const finalize = async (
+      result: ToolCallResult,
+      traceUpdates: Partial<ExecutionTrace> = {},
+      idempotencyStatus?: IdempotencyStatus,
+    ): Promise<ToolCallResult> => {
+      const finalNow = Date.now();
+      Object.assign(trace, traceUpdates, { updatedAt: finalNow });
+      trace.events.push({ timestamp: finalNow, event: "call_completed" });
+      await this.config.traceStore.save(trace);
+
+      const iStatus: IdempotencyStatus =
+        idempotencyStatus ??
+        (result.success
+          ? "completed"
+          : result.paymentRequired
+            ? "requires_payment"
+            : "failed");
+      await this.config.idempotencyStore.update(idempotencyKey, {
+        status: iStatus,
+        result,
+        updatedAt: finalNow,
+      });
+      return result;
+    };
+
+    // ── Existing execution logic (unchanged behavior) ─────
     const ledger = this.config.ledger;
 
     // Notify global hook
@@ -124,6 +243,13 @@ export class ToolGate {
     }
     // postpaid: price determined after execution via meter()
 
+    trace.estimatedAmount = price;
+    trace.events.push({
+      timestamp: Date.now(),
+      event: "price_resolved",
+      detail: `$${price}`,
+    });
+
     // ── Step 2: Build execution context ───────────────────
 
     const ctx: ExecutionContext = {
@@ -153,29 +279,69 @@ export class ToolGate {
       };
 
       const decision = await tool.policy.decide(policyCtx);
+      trace.events.push({
+        timestamp: Date.now(),
+        event: "policy_decided",
+        detail: decision,
+      });
 
       if (decision === "fallback") {
         if (tool.onFallback) await tool.onFallback(input, "fallback", ctx);
         if (tool.fallback) {
           const fallbackOutput = await tool.fallback(input, ctx);
-          return { success: true, output: fallbackOutput, isFallback: true };
+          return finalize(
+            { success: true, output: fallbackOutput, isFallback: true },
+            {
+              decision: "fallback_response",
+              handlerStatus: "not_started",
+              fallbackUsed: true,
+              chargeStatus: "none",
+            },
+            "fallback_served",
+          );
         }
-        return await this.handlePaymentFailure(
+        // Policy returned fallback but no fallback handler — warn and return 402
+        this.config.hooks?.onError?.(
+          tool.name,
+          new Error(
+            `Policy returned "fallback" for tool "${tool.name}" but no fallback handler is defined. ` +
+              `Add a fallback handler or change the policy decision.`,
+          ),
+        );
+        const failureResult = await this.handlePaymentFailure(
           tool,
           input,
           ctx,
           price,
           callerId,
         );
+        return finalize(
+          failureResult,
+          {
+            decision: "topup_required",
+            handlerStatus: "not_started",
+            chargeStatus: "none",
+          },
+          "requires_payment",
+        );
       }
 
       if (decision === "payment_required") {
-        return await this.handlePaymentFailure(
+        const failureResult = await this.handlePaymentFailure(
           tool,
           input,
           ctx,
           price,
           callerId,
+        );
+        return finalize(
+          failureResult,
+          {
+            decision: "topup_required",
+            handlerStatus: "not_started",
+            chargeStatus: "none",
+          },
+          "requires_payment",
         );
       }
 
@@ -195,11 +361,20 @@ export class ToolGate {
         const costEstimate = tool.estimate
           ? await tool.estimate(input, estimateCtx)
           : { estimatedPrice: price, currency: this.config.defaultCurrency };
-        return {
+        const estimateResult = {
           success: true,
           output: { type: "cost_estimate", ...costEstimate },
           isFallback: false,
         };
+        return finalize(
+          estimateResult,
+          {
+            decision: "execute",
+            handlerStatus: "not_started",
+            chargeStatus: "none",
+          },
+          "completed",
+        );
       }
       // "execute" or default → continue with normal payment gate
     }
@@ -219,17 +394,37 @@ export class ToolGate {
 
       if (!deducted) {
         // Insufficient balance — handle based on policy
-        return await this.handlePaymentFailure(
+        const failureResult = await this.handlePaymentFailure(
           tool,
           input,
           ctx,
           price,
           callerId,
         );
+        const isFallbackResult =
+          failureResult.success && failureResult.isFallback;
+        return finalize(
+          failureResult,
+          {
+            decision: isFallbackResult ? "fallback_response" : "topup_required",
+            handlerStatus: isFallbackResult ? "not_started" : "not_started",
+            fallbackUsed: isFallbackResult,
+            chargeStatus: "none",
+            failureClass: "insufficient_balance",
+          },
+          isFallbackResult ? "fallback_served" : "requires_payment",
+        );
       }
 
       // Payment hook
       this.config.hooks?.onPayment?.(tool.name, callerId, price);
+      trace.chargeStatus = "charged";
+      trace.rail = "prepaid";
+      trace.events.push({
+        timestamp: Date.now(),
+        event: "payment_deducted",
+        detail: `$${price}`,
+      });
     }
 
     // ── Step 4: beforeExecute hook ────────────────────────
@@ -244,10 +439,19 @@ export class ToolGate {
             reference: `refund:${callId}:aborted`,
           });
         }
-        return {
+        const abortResult = {
           success: false,
           output: { error: "Execution aborted by beforeExecute hook" },
         };
+        return finalize(
+          abortResult,
+          {
+            handlerStatus: "failed",
+            chargeStatus: needsPayment ? "refunded" : "none",
+            decision: "no_charge",
+          },
+          "failed",
+        );
       }
     }
 
@@ -257,10 +461,18 @@ export class ToolGate {
     let output: unknown;
     let metrics: ExecutionMetrics;
 
+    trace.handlerStatus = "not_started";
+    trace.events.push({ timestamp: startedAt, event: "handler_started" });
+
     try {
       output = await handler(input, ctx);
       const endedAt = Date.now();
       metrics = { durationMs: endedAt - startedAt, startedAt, endedAt };
+      trace.events.push({
+        timestamp: endedAt,
+        event: "handler_success",
+        detail: `${metrics.durationMs}ms`,
+      });
     } catch (error) {
       const endedAt = Date.now();
       metrics = { durationMs: endedAt - startedAt, startedAt, endedAt };
@@ -279,11 +491,23 @@ export class ToolGate {
       }
       this.config.hooks?.onError?.(tool.name, error as Error);
 
-      return {
+      const errorResult = {
         success: false,
         output: { error: (error as Error).message },
         metrics,
       };
+      return finalize(
+        errorResult,
+        {
+          handlerStatus: "failed",
+          durationMs: metrics.durationMs,
+          chargeStatus: needsPayment ? "refunded" : "none",
+          decision: "refund",
+          failureClass: "tool_failed",
+          refundReason: (error as Error).message,
+        },
+        "failed",
+      );
     }
 
     // ── Step 5b: Track usage for free tier calls ───────────
@@ -295,7 +519,7 @@ export class ToolGate {
     // ── Step 6: Post-execution metering (postpaid) ────────
 
     if (isPostpaid && tool.meter) {
-      const meterResult = await tool.meter(input, output, metrics);
+      const meterResult = await tool.meter(input, output, metrics!);
       price = meterResult.amount;
 
       const deducted = await ledger.deduct(callerId, price, {
@@ -309,20 +533,27 @@ export class ToolGate {
         // (debatable: could also withhold. MVP: return + flag)
       } else {
         this.config.hooks?.onPayment?.(tool.name, callerId, price);
+        trace.chargeStatus = "charged";
+        trace.rail = "prepaid";
+        trace.events.push({
+          timestamp: Date.now(),
+          event: "postpaid_metered",
+          detail: `$${price}`,
+        });
       }
     }
 
     // ── Step 7: afterExecute hook ─────────────────────────
 
     if (tool.afterExecute) {
-      await tool.afterExecute(input, output, metrics);
+      await tool.afterExecute(input, output, metrics!);
     }
 
     // ── Step 8: Build receipt ─────────────────────────────
 
     const balanceAfter = await ledger.getBalance(callerId);
 
-    return {
+    const successResult: ToolCallResult = {
       success: true,
       output,
       receipt:
@@ -337,9 +568,21 @@ export class ToolGate {
               timestamp: Date.now(),
             }
           : undefined,
-      metrics,
+      metrics: metrics!,
       isFallback: false,
     };
+
+    return finalize(
+      successResult,
+      {
+        handlerStatus: "success",
+        durationMs: metrics!.durationMs,
+        finalAmount: price,
+        decision: skipPaymentGate ? "allow_once" : "execute",
+        chargeStatus: price > 0 && needsPayment ? "charged" : "none",
+      },
+      "completed",
+    );
   }
 
   // ─── Payment Failure Handling ──────────────────────────
@@ -432,6 +675,78 @@ export class ToolGate {
       paymentRequired,
     };
   }
+
+  // ─── Idempotency Helpers ──────────────────────────────
+
+  private resolveIdempotencyKey(
+    tool: PaidToolConfig,
+    input: unknown,
+    callerId: string,
+  ): string {
+    if (typeof tool.idempotencyKey === "string") {
+      return tool.idempotencyKey;
+    }
+    if (typeof tool.idempotencyKey === "function") {
+      return tool.idempotencyKey(input, callerId);
+    }
+    return `auto_${tool.name}_${callerId}_${hashSync(input)}`;
+  }
+
+  private async handleDuplicate(
+    tool: PaidToolConfig,
+    input: unknown,
+    callerId: string,
+    record: IdempotencyRecord,
+    key: string,
+  ): Promise<ToolCallResult> {
+    const duplicatePolicy = tool.onDuplicate ?? "return_previous_result";
+
+    // Fire duplicate detected hook
+    if (tool.onDuplicateDetected) {
+      const balance = await this.config.ledger.getBalance(callerId);
+      const ctx: ExecutionContext = {
+        callerId,
+        callId: record.traceId,
+        tool: tool.name,
+        tier: "premium",
+        balance,
+        timestamp: Date.now(),
+      };
+      await tool.onDuplicateDetected(input, record, ctx);
+    }
+
+    if (duplicatePolicy === "return_previous_result") {
+      if (record.status === "in_progress") {
+        // Previous call still running — block with a clear message
+        return {
+          success: false,
+          output: {
+            error:
+              "Duplicate request: a previous execution is still in progress.",
+            idempotencyKey: key,
+          },
+        };
+      }
+      if (record.result) {
+        return record.result;
+      }
+      // No stored result (shouldn't happen, but fall through to block)
+    }
+
+    if (duplicatePolicy === "block") {
+      return {
+        success: false,
+        output: {
+          error: "Duplicate request detected. Request rejected.",
+          idempotencyKey: key,
+        },
+      };
+    }
+
+    // "re_execute": delete the existing record and execute fresh
+    await this.config.idempotencyStore.delete(key);
+    return this.executeTool(tool, input, callerId);
+  }
 }
 
 // ─── Helpers ─────────────────────────────────────────────
@@ -464,4 +779,18 @@ function generateCallId(): string {
   const ts = Date.now().toString(36);
   const rand = Math.random().toString(36).slice(2, 8);
   return `tg_${ts}_${rand}`;
+}
+
+/**
+ * djb2 hash for input deduplication. Fast, not cryptographic.
+ * Used for duplicate request detection in idempotency keys.
+ */
+function hashSync(input: unknown): string {
+  const str = JSON.stringify(input) ?? "";
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) ^ str.charCodeAt(i);
+    hash = hash >>> 0; // unsigned 32-bit
+  }
+  return hash.toString(36);
 }

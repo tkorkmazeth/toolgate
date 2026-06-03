@@ -50,32 +50,40 @@ export interface AccountLinkResult {
 // ─── StripeAdapter ─────────────────────────────────────────
 
 export class StripeAdapter {
-  private stripe: Stripe;
+  private _stripe: Stripe | null = null;
   private config: Required<StripeAdapterConfig>;
 
   constructor(config: StripeAdapterConfig) {
-    // Lazy import — stripe is a peer dependency; fail clearly if not installed.
+    this.config = {
+      platformFeePercent: 0.1,
+      topUpBaseUrl: "https://pay.toolgate.dev",
+      ...config,
+    };
+  }
+
+  /**
+   * Lazy-init the Stripe client on first use.
+   * Uses dynamic import() because the package is ESM ("type": "module")
+   * and stripe is an optional peer dependency.
+   */
+  private async getStripe(): Promise<Stripe> {
+    if (this._stripe) return this._stripe;
+
     let StripeLib: typeof Stripe;
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      StripeLib = require("stripe");
+      const mod = await import("stripe");
+      StripeLib = (mod.default ?? mod) as typeof Stripe;
     } catch {
       throw new Error(
         "stripe package not found. Install it: npm install stripe",
       );
     }
 
-    this.config = {
-      platformFeePercent: 0.1,
-      topUpBaseUrl: "https://pay.toolgate.dev",
-      ...config,
-    };
-
-    this.stripe = new StripeLib(this.config.secretKey, {
+    this._stripe = new StripeLib(this.config.secretKey, {
       apiVersion: "2025-02-24.acacia",
-      // Narrow type footprint — Toolgate only needs these features.
       typescript: true,
     });
+    return this._stripe;
   }
 
   // ─── Balance Top-Up ──────────────────────────────────────
@@ -100,7 +108,8 @@ export class StripeAdapter {
     validatePublisherId(publisherId);
 
     const baseUrl = this.config.topUpBaseUrl;
-    const session = await this.stripe.checkout.sessions.create({
+    const stripe = await this.getStripe();
+    const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [
         {
@@ -166,7 +175,8 @@ export class StripeAdapter {
       throw new Error(`Invalid email address: ${email}`);
     }
 
-    const account = await this.stripe.accounts.create({
+    const stripe = await this.getStripe();
+    const account = await stripe.accounts.create({
       type: "express",
       email,
       capabilities: {
@@ -189,7 +199,8 @@ export class StripeAdapter {
     returnUrl: string,
     refreshUrl: string,
   ): Promise<AccountLinkResult> {
-    const link = await this.stripe.accountLinks.create({
+    const stripe = await this.getStripe();
+    const link = await stripe.accountLinks.create({
       account: accountId,
       type: "account_onboarding",
       return_url: returnUrl,
@@ -221,7 +232,8 @@ export class StripeAdapter {
     );
     const netAmountCents = grossAmountCents - platformFeeCents;
 
-    const transfer = await this.stripe.transfers.create({
+    const stripe = await this.getStripe();
+    const transfer = await stripe.transfers.create({
       amount: netAmountCents,
       currency,
       destination: connectedAccountId,
@@ -241,9 +253,12 @@ export class StripeAdapter {
 
   // ─── Raw Stripe client (escape hatch) ────────────────────
 
-  /** Access the underlying Stripe SDK instance for advanced use. */
-  get client(): Stripe {
-    return this.stripe;
+  /**
+   * Access the underlying Stripe SDK instance for advanced use.
+   * Triggers lazy initialization if not yet loaded.
+   */
+  async getClient(): Promise<Stripe> {
+    return this.getStripe();
   }
 }
 

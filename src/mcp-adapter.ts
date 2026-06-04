@@ -86,6 +86,21 @@ export interface McpPaidToolConfig {
 
   /** Fires when fallback is triggered (for analytics/logging) */
   onFallback?: PaidToolConfig["onFallback"];
+
+  /** Optional Phase 2 idempotency key passthrough */
+  idempotencyKey?: PaidToolConfig["idempotencyKey"];
+
+  /** Duplicate handling passthrough */
+  onDuplicate?: PaidToolConfig["onDuplicate"];
+
+  /** Duplicate lifecycle hook passthrough */
+  onDuplicateDetected?: PaidToolConfig["onDuplicateDetected"];
+
+  /** Recovery hook passthrough */
+  onCostOverrun?: PaidToolConfig["onCostOverrun"];
+
+  /** Timeout recovery hook passthrough */
+  onToolTimeout?: PaidToolConfig["onToolTimeout"];
 }
 
 // ─── MCP Adapter ───────────────────────────────────────────
@@ -141,6 +156,11 @@ export class McpAdapter {
       policy: config.policy,
       estimate: config.estimate,
       onFallback: config.onFallback,
+      idempotencyKey: config.idempotencyKey,
+      onDuplicate: config.onDuplicate,
+      onDuplicateDetected: config.onDuplicateDetected,
+      onCostOverrun: config.onCostOverrun,
+      onToolTimeout: config.onToolTimeout,
     });
 
     // Build the MCP handler that wraps ToolGate execution
@@ -149,18 +169,29 @@ export class McpAdapter {
       extra: McpCallExtra,
     ): Promise<McpToolResult> => {
       const callerId = this.config.getCallerId(args, extra);
+      const idempotencyKey = resolveMcpIdempotencyKey(name, config, args, callerId);
+      const expectedAmount = await resolveExpectedAmount(config, args);
+      const existingRecord = await this.gate.idempotency.get(idempotencyKey);
 
       // Extract payment proof from _meta, verify, credit, then settle after execution
       const meta = extra._meta;
       let railAdapter: RailAdapter | undefined;
       let railProof: PaymentProof | undefined;
       let verificationContext: VerificationContext | undefined;
+      let providerPatch: Record<string, unknown> | undefined;
+      let traceChallengeId: string | undefined;
+      let traceReceiptId: string | undefined;
+      let verifiedAmount = 0;
 
-      if (meta) {
+      if (meta && !existingRecord) {
         let proof: PaymentProof | undefined;
         const mppCredential = meta["org.paymentauth/credential"];
         if (mppCredential) {
           proof = { rail: "mpp", mppPaymentHeader: String(mppCredential) };
+          traceChallengeId = getString(
+            meta["toolgate.mppChallengeId"] ??
+              (meta.toolgate as Record<string, unknown> | undefined)?.mppChallengeId,
+          );
         } else {
           const tgMeta = meta.toolgate as Record<string, unknown> | undefined;
           if (tgMeta?.x402Payment) {
@@ -169,8 +200,23 @@ export class McpAdapter {
               rail: "x402",
               x402PaymentPayload: tgMeta.x402Payment as Record<string, unknown>,
             };
-            verificationContext = { actionId };
+            verificationContext = {
+              actionId,
+              expectedAmount,
+              currency: "usd",
+              toolName: name,
+              callerId,
+            };
+            traceChallengeId = actionId;
           }
+        }
+        if (proof?.rail === "mpp") {
+          verificationContext = {
+            expectedAmount,
+            currency: "usd",
+            toolName: name,
+            callerId,
+          };
         }
         if (proof) {
           const adapter = this.gate.getRailAdapter(proof.rail);
@@ -186,18 +232,92 @@ export class McpAdapter {
               });
               railAdapter = adapter;
               railProof = proof;
+              verifiedAmount = verification.amount;
+              traceReceiptId = verification.receiptId;
+              providerPatch = {
+                name: proof.rail === "mpp" ? "mppx" : "x402-facilitator",
+                correlationId:
+                  getString(
+                    (meta.toolgate as Record<string, unknown> | undefined)?.providerId,
+                  ) ?? verification.receiptId,
+              };
             }
           }
         }
       }
 
       const result: ToolCallResult = await gateTool(args, callerId);
+      await this.annotateTrace(idempotencyKey, {
+        rail: railProof?.rail,
+        challengeId: traceChallengeId,
+        receiptId: traceReceiptId,
+        provider: providerPatch,
+        event:
+          railProof && traceReceiptId
+            ? {
+                event: "rail_payment_verified",
+                detail: railProof.rail,
+                metadata: {
+                  challengeId: traceChallengeId,
+                  receiptId: traceReceiptId,
+                },
+              }
+            : undefined,
+      });
+
+      if (railProof && verifiedAmount > 0 && (!result.success || result.isFallback)) {
+        await this.gate.ledger.deduct(callerId, verifiedAmount, {
+          callId: result.receipt?.callId ?? idempotencyKey,
+          tool: name,
+          amount: verifiedAmount,
+        });
+        await this.annotateTrace(idempotencyKey, {
+          event: {
+            event: "rail_credit_reversed",
+            detail: railProof.rail,
+            metadata: { amount: verifiedAmount },
+          },
+        });
+      }
 
       // Settle on-chain after successful execution
       if (result.success && railAdapter?.settlePayment && railProof) {
-        await railAdapter
+        const settlement = await railAdapter
           .settlePayment(railProof, verificationContext)
           .catch(() => null);
+
+        if (settlement) {
+          await this.annotateTrace(idempotencyKey, {
+            receiptId: settlement.receiptId,
+            provider: {
+              ...(providerPatch ?? {}),
+              traceId: settlement.txHash,
+            },
+            event: {
+              event: "rail_payment_settled",
+              detail: settlement.rail,
+              metadata: {
+                receiptId: settlement.receiptId,
+                txHash: settlement.txHash,
+              },
+            },
+          });
+        } else if (railProof.rail === "x402") {
+          await this.annotateTrace(idempotencyKey, {
+            failureClass: "settlement_uncertain",
+            event: {
+              event: "settlement_uncertain",
+              detail: "x402 facilitator did not confirm settlement",
+            },
+          });
+        }
+      } else if (railProof && (!result.success || result.isFallback)) {
+        await this.annotateTrace(idempotencyKey, {
+          event: {
+            event: "rail_settlement_skipped",
+            detail: railProof.rail,
+          },
+        });
       }
 
       return this.formatMcpResult(result, name);
@@ -340,9 +460,13 @@ export class McpAdapter {
               if (
                 pr.settlements?.some((s) => s.rail === "mpp" && s.mppChallenge)
               ) {
-                mcpMeta["org.paymentauth/challenges"] = pr.settlements.find(
+                const mppSettlement = pr.settlements.find(
                   (s) => s.rail === "mpp",
-                )!.mppChallenge!.challenges;
+                )!;
+                mcpMeta["org.paymentauth/challenges"] =
+                  mppSettlement.mppChallenge!.challenges;
+                (mcpMeta.toolgate as Record<string, unknown>).mppChallengeId =
+                  mppSettlement.mppChallenge!.challenges[0]?.id ?? null;
               }
               if (
                 pr.settlements?.some(
@@ -421,6 +545,56 @@ export class McpAdapter {
 
     return parts.join(" ");
   }
+
+  private async annotateTrace(
+    idempotencyKey: string,
+    patch: {
+      rail?: PaymentProof["rail"];
+      challengeId?: string;
+      receiptId?: string;
+      provider?: Record<string, unknown>;
+      failureClass?: PaidToolConfig["onPaymentFail"] extends never
+        ? never
+        : "settlement_uncertain";
+      event?: {
+        event: string;
+        detail?: string;
+        metadata?: Record<string, unknown>;
+      };
+    },
+  ): Promise<void> {
+    const trace = await this.gate.traces.findByIdempotencyKey(idempotencyKey);
+    if (!trace) return;
+
+    if (patch.rail) {
+      trace.rail = patch.rail;
+    }
+    if (patch.challengeId) {
+      trace.challengeId = patch.challengeId;
+    }
+    if (patch.receiptId) {
+      trace.receiptId = patch.receiptId;
+    }
+    if (patch.failureClass) {
+      trace.failureClass = patch.failureClass;
+    }
+    if (patch.provider) {
+      trace.provider = {
+        ...(trace.provider ?? {}),
+        ...patch.provider,
+      };
+    }
+    if (patch.event) {
+      trace.events.push({
+        timestamp: Date.now(),
+        event: patch.event.event,
+        detail: patch.event.detail,
+        metadata: patch.event.metadata,
+      });
+    }
+    trace.updatedAt = Date.now();
+    await this.gate.traces.save(trace);
+  }
 }
 
 // ─── Helpers ─────────────────────────────────────────────
@@ -430,6 +604,47 @@ function defaultGetCallerId(
   extra: McpCallExtra,
 ): string {
   return extra.sessionId ?? "anonymous";
+}
+
+function resolveMcpIdempotencyKey(
+  name: string,
+  config: McpPaidToolConfig,
+  args: Record<string, unknown>,
+  callerId: string,
+): string {
+  if (typeof config.idempotencyKey === "string") {
+    return config.idempotencyKey;
+  }
+  if (typeof config.idempotencyKey === "function") {
+    return config.idempotencyKey(args, callerId);
+  }
+  return `auto_${name}_${callerId}_${hashSync(args)}`;
+}
+
+function getString(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function hashSync(input: unknown): string {
+  const str = JSON.stringify(input) ?? "";
+  let hash = 5381;
+  for (let index = 0; index < str.length; index++) {
+    hash = (((hash << 5) + hash) ^ str.charCodeAt(index)) >>> 0;
+  }
+  return hash.toString(36);
+}
+
+async function resolveExpectedAmount(
+  config: McpPaidToolConfig,
+  args: Record<string, unknown>,
+): Promise<number> {
+  if (typeof config.price === "number") {
+    return config.price;
+  }
+  if (typeof config.price === "function") {
+    return await config.price(args);
+  }
+  return 0;
 }
 
 function serializeOutput(output: unknown): McpToolResult["content"] {

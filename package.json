@@ -21,6 +21,9 @@
   },
   "scripts": {
     "build": "tsc",
+    "scenario:ledger": "npm run build && node examples/mcp-ledger-recovery/scenario.mjs",
+    "scenario:mpp": "npm run build && node examples/mcp-mpp-recovery/scenario.mjs",
+    "scenario:x402": "npm run build && node examples/mcp-x402-experimental/scenario.mjs",
     "test": "node --test src/__tests__/paidTool.test.mjs src/__tests__/mcp-adapter.test.mjs src/__tests__/stripe.test.mjs src/__tests__/webhook-handler.test.mjs src/__tests__/db-ledger.test.mjs src/__tests__/rail-adapter.test.mjs src/__tests__/policy.test.mjs src/__tests__/protocol-compliance.test.mjs src/__tests__/idempotency.test.mjs src/__tests__/trace.test.mjs",
     "prepublishOnly": "npm run build && npm test"
   },

@@ -67,7 +67,10 @@ export class MppRailAdapter implements RailAdapter {
     };
   }
 
-  async verifyPayment(proof: PaymentProof): Promise<VerificationResult | null> {
+  async verifyPayment(
+    proof: PaymentProof,
+    context?: VerificationContext,
+  ): Promise<VerificationResult | null> {
     if (!proof.mppPaymentHeader || !this.config.mppxInstance) return null;
 
     try {
@@ -90,8 +93,8 @@ export class MppRailAdapter implements RailAdapter {
         return {
           verified: true,
           rail: "mpp",
-          amount: 0,
-          currency: "usd",
+          amount: context?.expectedAmount ?? 0,
+          currency: context?.currency ?? "usd",
           receiptId: `mpp_${Date.now().toString(36)}`,
         };
       }

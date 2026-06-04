@@ -145,6 +145,7 @@ export class X402RailAdapter implements RailAdapter {
       },
       (timeout + 60) * 1000,
     );
+    timer.unref?.();
     this.pendingTimers.set(actionId, timer);
 
     return {

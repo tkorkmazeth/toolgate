@@ -382,6 +382,14 @@ export interface VerificationContext {
   paymentRequirements?: X402PaymentRequirement;
   /** Settlement action ID (maps to pending requirements) */
   actionId?: string;
+  /** Expected amount to credit before execution when the rail verifies a proof */
+  expectedAmount?: number;
+  /** Currency for the verified payment */
+  currency?: string;
+  /** Tool identity for provider correlation */
+  toolName?: string;
+  /** Caller identity for provider correlation */
+  callerId?: string;
 }
 
 export interface SettlementResult {
@@ -643,7 +651,13 @@ export interface TraceStore {
   save(trace: ExecutionTrace): Promise<void>;
   get(traceId: string): Promise<ExecutionTrace | null>;
   getByIdempotencyKey(key: string): Promise<ExecutionTrace | null>;
+  findByIdempotencyKey(key: string): Promise<ExecutionTrace | null>;
   list(filter: {
+    callerId?: string;
+    toolName?: string;
+    limit?: number;
+  }): Promise<ExecutionTrace[]>;
+  toJSON(filter?: {
     callerId?: string;
     toolName?: string;
     limit?: number;

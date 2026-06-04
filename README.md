@@ -1,6 +1,8 @@
 # Toolgate
 
-Billing-aware execution SDK for paid MCP tools — graceful fallback, programmable billing logic, and rail-agnostic metering.
+Make paid MCP tools recoverable.
+
+Billing-aware execution SDK for paid MCP tools — graceful fallback, programmable billing logic, idempotent retries, execution traces, and rail-agnostic recovery.
 
 Works with Stripe (fiat), MPP (Stripe+Tempo), and x402 (crypto). You handle the billing decisions — Toolgate handles execution reliability.
 
@@ -9,6 +11,31 @@ npm install @tkorkmaz/toolgate
 ```
 
 ---
+
+## Phase 3 Focus
+
+Phase 3 is rail validation plus realistic MCP integration, not dashboard-first product work.
+
+- Examples first: run the deterministic recovery scenarios in `examples/mcp-ledger-recovery`, `examples/mcp-mpp-recovery`, and `examples/mcp-x402-experimental`
+- Persistence later: in-memory stores stay the default until multi-rail behavior and example integrations are stable
+- x402 stays experimental: explicit facilitator configuration is required and settlement uncertainty is surfaced in traces
+- Public npm should remain alpha until the examples and rail assumptions are stable
+
+Run the scenario suites:
+
+```bash
+npm run scenario:ledger
+npm run scenario:mpp
+npm run scenario:x402
+```
+
+Each runner proves the same recovery contract:
+
+- payment missing -> fallback
+- payment available -> execute
+- duplicate idempotency key -> return previous result with no double charge
+- handler error -> refund or no_charge path
+- trace output -> list trace events
 
 ## Quick Start
 

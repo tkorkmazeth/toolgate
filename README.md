@@ -1,15 +1,23 @@
 # Toolgate
 
-Toolgate is the paid-action runtime for MCP tools.
+**Toolgate — Paid-action runtime for MCP tools.**
+Execution, billing, recovery, and idempotency for paid AI agent tool calls.
 
 Toolgate sits above payment rails and MCP transports. It adds fallback behavior, idempotent replay, execution traces, and refund or no-charge outcomes when the paid path fails.
 
-Current sprint focus:
+## What's New in 0.3.0-alpha.0
 
-- real integration acceptance tests
-- no dashboard yet
-- no full persistence yet
-- no outreach until Stripe test mode plus MCP SDK E2E are both green
+- **Integer money** — All billing uses `Money` (bigint minor units). No more `0.1 + 0.2 = 0.30000000000000004` in production billing.
+- **Atomic idempotency** — `claim() / complete() / fail()` with lease expiry. Concurrent requests with the same key are safely blocked instead of double-charging.
+- **Rail-aware recovery** — `determineRecovery()` selects the correct recovery action per payment rail (prepaid credit-back, Stripe refund, x402 compensation).
+
+**Breaking changes from 0.2.x:**
+
+- `LedgerAdapter.getBalance()` now returns `Money` (not `number`)
+- `LedgerAdapter.credit()` now takes `Money` and returns `TransactionId`
+- `LedgerAdapter.deduct()` now takes `Money` and returns `{success, txId}`
+- `IdempotencyStore` interface replaced with atomic `claim/complete/fail/peek`
+- `price: 0.1` still works but logs a deprecation warning; use `usd("0.10")` instead
 
 ## Quickstart
 
@@ -112,14 +120,14 @@ The flow is intentionally explicit:
 
 ## Support Matrix
 
-| Surface            | Status                                   | What is validated right now                                                                                                                                                                                        |
-| ------------------ | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Ledger             | Validated                                | local paid execution, fallback, duplicate replay, refund                                                                                                                                                           |
-| Stripe test mode   | Acceptance runner implemented, env-gated | Stripe test-mode webhook credit flow validated via Stripe CLI; duplicate webhook protection and retry-to-paid flow are covered when `STRIPE_SECRET_KEY` is present. Full browser checkout test is optional/manual. |
-| MPP                | Mocked and validated                     | adapter verification path and recovery behavior                                                                                                                                                                    |
-| x402               | Experimental, explicit blocker supported | local verify and settle path is validated; real facilitator run is env-gated and reports the exact blocker when testnet proof input is missing                                                                     |
-| Firecrawl MCP E2E  | Validated                                | official MCP SDK stdio client and server, fallback, paid execution, duplicate replay, trace inspection                                                                                                             |
-| Firecrawl live API | Env-gated                                | real Firecrawl scrape path plus Toolgate recovery behavior                                                                                                                                                         |
+| Rail                | Status                   | What's tested                                                                                                     | Guarantee                                                     |
+| ------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Prepaid ledger      | **Production candidate** | Durable with Postgres adapter. Credit, debit, balance, idempotent replay. Integer money (no float drift).         | No double-charge. Refund = instant ledger credit.             |
+| Stripe test mode    | **Validated**            | Real Stripe API. Checkout session creation, webhook signature verification, balance credit, duplicate protection. | Works with `sk_test_` keys.                                   |
+| Stripe production   | **Beta**                 | Same code as test mode. Requires production webhook endpoint deployment.                                          | Use at your own risk until design partner validation.         |
+| x402 (Base Sepolia) | **Experimental**         | Real USDC on Base Sepolia testnet. EIP-3009 signing, Coinbase facilitator verify+settle.                          | Settlement can be uncertain. Requires external wallet signer. |
+| x402 (mainnet)      | **Not tested**           | No mainnet testing performed.                                                                                     | Do not use with real funds without independent audit.         |
+| MPP                 | **Mocked**               | Adapter verification path and recovery behavior validated.                                                        | Spec-compliant mock only.                                     |
 
 ## Outreach Gate
 

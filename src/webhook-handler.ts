@@ -1,5 +1,6 @@
 import type Stripe from "stripe";
 import type { LedgerAdapter } from "./types.js";
+import { usd } from "./money.js";
 
 // ─── Result types ──────────────────────────────────────────
 
@@ -161,7 +162,7 @@ export class WebhookHandler {
       };
     }
 
-    const amountUsd = amountCents / 100;
+    const amountUsd = usd((amountCents / 100).toFixed(2));
 
     try {
       await this.ledger.credit(callerId, amountUsd, {

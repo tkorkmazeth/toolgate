@@ -1,57 +1,77 @@
+import {
+  type Money,
+  type TransactionId,
+  usd,
+  add,
+  subtract,
+  gte,
+} from "./money.js";
 import type { LedgerAdapter, DeductMeta, CreditMeta } from "./types.js";
+import { randomUUID } from "node:crypto";
 
 /**
  * In-memory ledger for MVP / local development.
+ *
+ * All balances are stored as Money (bigint minor units) — no floating point.
  */
 export class InMemoryLedger implements LedgerAdapter {
-  private balances = new Map<string, number>();
+  private balances = new Map<string, Money>();
   private usage = new Map<string, number>(); // key: `${callerId}:${tool}:${period}`
   private transactions: Array<{
+    txId: TransactionId;
     type: "deduct" | "credit";
     callerId: string;
-    amount: number;
+    amount: Money;
     meta: DeductMeta | CreditMeta;
     timestamp: number;
   }> = [];
 
-  async getBalance(callerId: string): Promise<number> {
-    return this.balances.get(callerId) ?? 0;
+  async getBalance(callerId: string): Promise<Money> {
+    return this.balances.get(callerId) ?? usd("0.00");
   }
 
   async deduct(
     callerId: string,
-    amount: number,
+    amount: Money,
     meta: DeductMeta,
-  ): Promise<boolean> {
-    const current = this.balances.get(callerId) ?? 0;
-    if (current < amount) return false;
+  ): Promise<{ success: boolean; txId: TransactionId }> {
+    const current = this.balances.get(callerId) ?? usd("0.00");
+    if (!gte(current, amount)) {
+      return { success: false, txId: "" };
+    }
 
-    this.balances.set(callerId, round(current - amount));
+    const newBalance = subtract(current, amount);
+    this.balances.set(callerId, newBalance);
+    const txId = randomUUID();
     this.transactions.push({
+      txId,
       type: "deduct",
       callerId,
       amount,
       meta,
       timestamp: Date.now(),
     });
-
-    return true;
+    return { success: true, txId };
   }
 
   async credit(
     callerId: string,
-    amount: number,
+    amount: Money,
     meta: CreditMeta,
-  ): Promise<void> {
-    const current = this.balances.get(callerId) ?? 0;
-    this.balances.set(callerId, round(current + amount));
+  ): Promise<TransactionId> {
+    const current = this.balances.get(callerId) ?? usd("0.00");
+    const newBalance = add(current, amount);
+    this.balances.set(callerId, newBalance);
+    const txId = randomUUID();
     this.transactions.push({
+      txId,
       type: "credit",
       callerId,
       amount,
       meta,
       timestamp: Date.now(),
     });
+    return txId;
   }
 
   async getUsage(
@@ -79,15 +99,13 @@ export class InMemoryLedger implements LedgerAdapter {
   }
 
   getAllBalances() {
-    return Object.fromEntries(this.balances);
+    return Object.fromEntries(
+      Array.from(this.balances.entries()).map(([k, v]) => [k, v]),
+    );
   }
 }
 
 // ─── Helpers ─────────────────────────────────────────────
-
-function round(n: number): number {
-  return Math.round(n * 1_000_000) / 1_000_000; // 6 decimal places
-}
 
 function currentPeriod(period: string): string {
   const d = new Date();

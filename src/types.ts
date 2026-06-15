@@ -1,3 +1,6 @@
+import type { Money, TransactionId, PriceInput } from "./money.js";
+export type { Money, TransactionId, PriceInput } from "./money.js";
+
 // ─── Core Types ────────────────────────────────────────────
 
 export interface ToolGateConfig {
@@ -86,11 +89,17 @@ export type MppMethodConfig =
 
 // ─── Pricing ───────────────────────────────────────────────
 
-/** Static number, dynamic function, or "postpaid" (meter after execution) */
-export type PriceSpec =
-  | number
-  | ((input: unknown) => number | Promise<number>)
-  | "postpaid";
+/**
+ * Price specification for a paid tool.
+ * Accepts all PriceInput forms plus "postpaid" for metered billing.
+ * - number: legacy (0.1), converted internally to Money; logs deprecation
+ * - string: "0.10" shorthand (assumes USD)
+ * - Money: recommended — use usd("0.10") or usdc("0.001")
+ * - object: { amount, currency } for explicit non-USD
+ * - function: dynamic pricing based on input
+ * - "postpaid": meter after execution via meter()
+ */
+export type PriceSpec = PriceInput | "postpaid";
 
 export interface TierConfig {
   free?: {
@@ -322,9 +331,27 @@ export interface ToolCallResult {
 // ─── Ledger Adapter ────────────────────────────────────────
 
 export interface LedgerAdapter {
-  getBalance(callerId: string): Promise<number>;
-  deduct(callerId: string, amount: number, meta: DeductMeta): Promise<boolean>;
-  credit(callerId: string, amount: number, meta: CreditMeta): Promise<void>;
+  /** Returns current balance as Money. */
+  getBalance(callerId: string): Promise<Money>;
+  /**
+   * Atomically deduct amount from balance.
+   * Returns { success: false } if balance is insufficient.
+   * Returns { success: true, txId } with audit transaction ID on success.
+   */
+  deduct(
+    callerId: string,
+    amount: Money,
+    meta: DeductMeta,
+  ): Promise<{ success: boolean; txId: TransactionId }>;
+  /**
+   * Credit amount to caller's balance.
+   * Returns a unique transaction ID for audit purposes.
+   */
+  credit(
+    callerId: string,
+    amount: Money,
+    meta: CreditMeta,
+  ): Promise<TransactionId>;
   getUsage(callerId: string, tool: string, period: string): Promise<number>;
   incrementUsage(callerId: string, tool: string, period: string): Promise<void>;
 }
@@ -332,7 +359,7 @@ export interface LedgerAdapter {
 export interface DeductMeta {
   callId: string;
   tool: string;
-  amount: number;
+  amount: Money;
 }
 
 export interface CreditMeta {
@@ -552,8 +579,8 @@ export interface ExecutionTrace {
   inputHash: string;
 
   // ── Pricing ──
-  estimatedAmount?: number;
-  finalAmount?: number;
+  estimatedAmount?: Money;
+  finalAmount?: Money;
   currency: string;
 
   // ── Decision ──
@@ -579,7 +606,13 @@ export interface ExecutionTrace {
     | "refunded"
     | "credited_back"
     | "voided"
-    | "no_charge";
+    | "no_charge"
+    // Phase 1D additions:
+    | "refund_pending" // Rail refund initiated (Stripe: async)
+    | "credit_compensated" // Charged but handler failed → ledger credit
+    | "settlement_uncertain"; // x402 settlement not confirmed
+  /** Recovery action taken (from Phase 1D state machine). */
+  recoveryAction?: RecoveryAction;
   refundReason?: string;
 
   // ── Provider Context (for rail/credential correlation) ──
@@ -609,6 +642,13 @@ export interface TraceEvent {
 
 // ─── Idempotency ──────────────────────────────────────────
 
+/** Serializable error stored in failed idempotency records. */
+export interface SerializedError {
+  message: string;
+  code?: string;
+  stack?: string;
+}
+
 export type IdempotencyStatus =
   | "in_progress"
   | "completed"
@@ -621,27 +661,75 @@ export type IdempotencyStatus =
 
 export interface IdempotencyRecord {
   key: string;
-  callerId: string;
-  toolName: string;
-  inputHash: string;
-  status: IdempotencyStatus;
-  /** Stored result (for returning on duplicate) */
-  result?: ToolCallResult;
+  /** Status of this idempotency record. */
+  status: "in_progress" | "completed" | "failed";
+  /** Owner of the current lease (UUID). */
+  ownerId: string;
+  /** Epoch ms when the current lease expires. */
+  leaseExpiresAt: number;
+  /** Stored result for completed records (enables idempotent replay). */
+  result?: unknown;
+  /** Error for failed records. */
+  error?: SerializedError;
   traceId: string;
   createdAt: number;
   updatedAt: number;
-  /** TTL — auto-expire after this timestamp */
-  expiresAt: number;
+  /** Optimistic concurrency version — increments on each state change. */
+  version: number;
 }
 
+/** Result of an atomic claim() call. */
+export type ClaimResult =
+  | { status: "claimed"; record: IdempotencyRecord } // you own it, proceed
+  | { status: "completed"; record: IdempotencyRecord } // already done, replay
+  | { status: "in_progress"; record: IdempotencyRecord } // active lease elsewhere
+  | { status: "failed"; record: IdempotencyRecord }; // prev failed, retry OK
+
 /**
- * Pluggable idempotency store. InMemoryIdempotencyStore for dev,
+ * Atomic idempotency store.
+ *
+ * In-memory: safe for single-process Node.js (event loop is single-threaded).
+ * Postgres: uses INSERT … ON CONFLICT DO NOTHING for cross-instance safety.
  */
 export interface IdempotencyStore {
-  get(key: string): Promise<IdempotencyRecord | null>;
-  set(record: IdempotencyRecord): Promise<void>;
-  update(key: string, updates: Partial<IdempotencyRecord>): Promise<void>;
-  delete(key: string): Promise<void>;
+  /**
+   * Read-only: returns existing record without claiming ownership.
+   * Used by adapters to check for duplicates before payment processing.
+   */
+  peek(key: string): Promise<IdempotencyRecord | null>;
+
+  /**
+   * Atomic claim.
+   * - Missing key → creates in_progress, returns "claimed".
+   * - Completed → returns "completed" with cached result for replay.
+   * - In_progress + active lease → returns "in_progress" (block concurrent).
+   * - In_progress + expired lease → reclaims, returns "claimed".
+   * - Failed → returns "failed" (caller decides retry policy).
+   */
+  claim(input: {
+    key: string;
+    ownerId: string;
+    leaseMs: number;
+    traceId: string;
+  }): Promise<ClaimResult>;
+
+  /**
+   * Extend the lease during long-running handlers.
+   * Returns false if ownership was lost (lease expired and reclaimed).
+   */
+  heartbeat(key: string, ownerId: string, extendMs: number): Promise<boolean>;
+
+  /**
+   * Mark as completed with result. Only succeeds if caller owns the lease.
+   * Returns false if ownership was lost.
+   */
+  complete(key: string, ownerId: string, result: unknown): Promise<boolean>;
+
+  /**
+   * Mark as failed with error. Only succeeds if caller owns the lease.
+   * Failed records can be retried (new claim will succeed after failure).
+   */
+  fail(key: string, ownerId: string, error: SerializedError): Promise<boolean>;
 }
 
 /**

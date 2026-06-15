@@ -1,4 +1,5 @@
 import type { ToolGate } from "./toolgate.js";
+import { usd } from "./money.js";
 import type {
   PaidToolConfig,
   ToolCallResult,
@@ -176,7 +177,7 @@ export class McpAdapter {
         callerId,
       );
       const expectedAmount = await resolveExpectedAmount(config, args);
-      const existingRecord = await this.gate.idempotency.get(idempotencyKey);
+      const existingRecord = await this.gate.idempotency.peek(idempotencyKey);
 
       // Extract payment proof from _meta, verify, credit, then settle after execution
       const meta = extra._meta;
@@ -236,11 +237,15 @@ export class McpAdapter {
               (await adapter.verifyPayment?.(proof, verificationContext)) ??
               null;
             if (verification?.verified) {
-              await this.gate.ledger.credit(callerId, verification.amount, {
-                source: proof.rail,
-                reference:
-                  verification.receiptId ?? `rail_${Date.now().toString(36)}`,
-              });
+              await this.gate.ledger.credit(
+                callerId,
+                usd(verification.amount),
+                {
+                  source: proof.rail,
+                  reference:
+                    verification.receiptId ?? `rail_${Date.now().toString(36)}`,
+                },
+              );
               railAdapter = adapter;
               railProof = proof;
               verifiedAmount = verification.amount;
@@ -282,10 +287,10 @@ export class McpAdapter {
         verifiedAmount > 0 &&
         (!result.success || result.isFallback)
       ) {
-        await this.gate.ledger.deduct(callerId, verifiedAmount, {
+        await this.gate.ledger.deduct(callerId, usd(verifiedAmount), {
           callId: result.receipt?.callId ?? idempotencyKey,
           tool: name,
-          amount: verifiedAmount,
+          amount: usd(verifiedAmount),
         });
         await this.annotateTrace(idempotencyKey, {
           event: {
@@ -657,8 +662,14 @@ async function resolveExpectedAmount(
   if (typeof config.price === "number") {
     return config.price;
   }
+  if (typeof config.price === "string") {
+    return parseFloat(config.price) || 0;
+  }
   if (typeof config.price === "function") {
-    return await config.price(args);
+    const result = await config.price(args);
+    if (typeof result === "number") return result;
+    if (typeof result === "string") return parseFloat(result) || 0;
+    return 0;
   }
   return 0;
 }

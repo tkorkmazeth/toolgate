@@ -15,14 +15,23 @@ import type {
   PaymentMode,
   ExecutionTrace,
   IdempotencyRecord,
-  IdempotencyStatus,
   IdempotencyStore,
   TraceStore,
   RecoveryAction,
 } from "./types.js";
+import {
+  type Money,
+  usd,
+  toNumber,
+  toDecimalString,
+  isZero,
+  resolvePriceInput,
+} from "./money.js";
+import { determineRecovery, getCapabilities } from "./recovery.js";
 import { InMemoryLedger } from "./ledger.js";
 import { InMemoryIdempotencyStore } from "./idempotency.js";
 import { InMemoryTraceStore } from "./trace-store.js";
+import { randomUUID } from "node:crypto";
 
 // ─── ToolGate Core ─────────────────────────────────────────
 
@@ -136,34 +145,43 @@ export class ToolGate {
     const callId = generateCallId();
     const now = Date.now();
 
-    // ── Step 0: Idempotency check ─────────────────────────
+    // ── Step 0: Atomic idempotency claim ──────────────────
     const idempotencyKey = this.resolveIdempotencyKey(tool, input, callerId);
     const inputHash = hashSync(input);
+    const ownerId = randomUUID();
+    const leaseMs = 30_000; // 30-second default lease
 
-    const existingRecord =
-      await this.config.idempotencyStore.get(idempotencyKey);
-    if (existingRecord) {
+    const claimResult = await this.config.idempotencyStore.claim({
+      key: idempotencyKey,
+      ownerId,
+      leaseMs,
+      traceId: callId,
+    });
+
+    if (claimResult.status === "completed") {
+      // Idempotent replay — return cached result without re-executing
       return this.handleDuplicate(
         tool,
         input,
         callerId,
-        existingRecord,
+        claimResult.record,
         idempotencyKey,
+        "return_previous_result",
       );
     }
 
-    // Mark as in_progress
-    await this.config.idempotencyStore.set({
-      key: idempotencyKey,
-      callerId,
-      toolName: tool.name,
-      inputHash,
-      status: "in_progress",
-      traceId: callId,
-      createdAt: now,
-      updatedAt: now,
-      expiresAt: now + this.config.idempotencyTtlSeconds * 1000,
-    });
+    if (claimResult.status === "in_progress") {
+      // Another execution is actively running — block concurrent request
+      return {
+        success: false,
+        output: {
+          error:
+            "Duplicate request: a previous execution is still in progress.",
+          idempotencyKey,
+        },
+      };
+    }
+    // status === "claimed" or "failed" → we own it, proceed to execute
 
     // ── Initialize trace ──────────────────────────────────
     const trace: ExecutionTrace = {
@@ -186,25 +204,26 @@ export class ToolGate {
     const finalize = async (
       result: ToolCallResult,
       traceUpdates: Partial<ExecutionTrace> = {},
-      idempotencyStatus?: IdempotencyStatus,
+      succeeded = result.success,
     ): Promise<ToolCallResult> => {
       const finalNow = Date.now();
       Object.assign(trace, traceUpdates, { updatedAt: finalNow });
       trace.events.push({ timestamp: finalNow, event: "call_completed" });
       await this.config.traceStore.save(trace);
 
-      const iStatus: IdempotencyStatus =
-        idempotencyStatus ??
-        (result.success
-          ? "completed"
-          : result.paymentRequired
-            ? "requires_payment"
-            : "failed");
-      await this.config.idempotencyStore.update(idempotencyKey, {
-        status: iStatus,
-        result,
-        updatedAt: finalNow,
-      });
+      if (succeeded) {
+        await this.config.idempotencyStore.complete(
+          idempotencyKey,
+          ownerId,
+          result,
+        );
+      } else {
+        await this.config.idempotencyStore.fail(idempotencyKey, ownerId, {
+          message:
+            (result.output as { error?: string } | undefined)?.error ??
+            "execution_failed",
+        });
+      }
       return result;
     };
 
@@ -217,7 +236,7 @@ export class ToolGate {
     // ── Step 1: Determine tier and price ──────────────────
 
     let tier: "free" | "premium" = "premium";
-    let price: number = 0;
+    let price: Money = usd("0.00");
     let handler: ToolHandler = tool.handler;
 
     if (tool.tiers) {
@@ -230,16 +249,19 @@ export class ToolGate {
         );
         if (usage < tool.tiers.free.limit) {
           tier = "free";
-          price = 0;
+          price = usd("0.00");
           handler = tool.tiers.free.handler ?? tool.handler;
         } else {
           tier = "premium";
-          price = await resolvePrice(tool.tiers.premium.price, input);
+          price = await resolvePriceInput(
+            tool.tiers.premium.price as PriceSpec,
+            input,
+          );
           handler = tool.tiers.premium.handler ?? tool.handler;
         }
       }
     } else if (tool.price !== undefined && tool.price !== "postpaid") {
-      price = await resolvePrice(tool.price, input);
+      price = await resolvePriceInput(tool.price, input);
     }
     // postpaid: price determined after execution via meter()
 
@@ -247,17 +269,18 @@ export class ToolGate {
     trace.events.push({
       timestamp: Date.now(),
       event: "price_resolved",
-      detail: `$${price}`,
+      detail: toDecimalString(price),
     });
 
     // ── Step 2: Build execution context ───────────────────
 
+    const balanceMoney = await ledger.getBalance(callerId);
     const ctx: ExecutionContext = {
       callerId,
       callId,
       tool: tool.name,
       tier,
-      balance: await ledger.getBalance(callerId),
+      balance: toNumber(balanceMoney), // number for backward compat in policy fns
       timestamp: Date.now(),
     };
 
@@ -266,7 +289,7 @@ export class ToolGate {
     let skipPaymentGate = false;
     if (tool.policy) {
       const isPostpaidForPolicy = tool.price === "postpaid";
-      const estimatedPrice = isPostpaidForPolicy ? 0 : price;
+      const estimatedPrice = isPostpaidForPolicy ? 0 : toNumber(price);
       const usageToday = await ledger.getUsage(callerId, tool.name, "day");
       const policyCtx: PolicyContext = {
         callerId,
@@ -297,7 +320,6 @@ export class ToolGate {
               fallbackUsed: true,
               chargeStatus: "none",
             },
-            "fallback_served",
           );
         }
         // Policy returned fallback but no fallback handler — warn and return 402
@@ -315,15 +337,11 @@ export class ToolGate {
           price,
           callerId,
         );
-        return finalize(
-          failureResult,
-          {
-            decision: "topup_required",
-            handlerStatus: "not_started",
-            chargeStatus: "none",
-          },
-          "requires_payment",
-        );
+        return finalize(failureResult, {
+          decision: "topup_required",
+          handlerStatus: "not_started",
+          chargeStatus: "none",
+        });
       }
 
       if (decision === "payment_required") {
@@ -334,15 +352,11 @@ export class ToolGate {
           price,
           callerId,
         );
-        return finalize(
-          failureResult,
-          {
-            decision: "topup_required",
-            handlerStatus: "not_started",
-            chargeStatus: "none",
-          },
-          "requires_payment",
-        );
+        return finalize(failureResult, {
+          decision: "topup_required",
+          handlerStatus: "not_started",
+          chargeStatus: "none",
+        });
       }
 
       if (decision === "allow_once") {
@@ -366,15 +380,11 @@ export class ToolGate {
           output: { type: "cost_estimate", ...costEstimate },
           isFallback: false,
         };
-        return finalize(
-          estimateResult,
-          {
-            decision: "execute",
-            handlerStatus: "not_started",
-            chargeStatus: "none",
-          },
-          "completed",
-        );
+        return finalize(estimateResult, {
+          decision: "execute",
+          handlerStatus: "not_started",
+          chargeStatus: "none",
+        });
       }
       // "execute" or default → continue with normal payment gate
     }
@@ -383,16 +393,16 @@ export class ToolGate {
 
     const isPostpaid = tool.price === "postpaid";
     const needsPayment =
-      tier === "premium" && price > 0 && !isPostpaid && !skipPaymentGate;
+      tier === "premium" && !isZero(price) && !isPostpaid && !skipPaymentGate;
 
     if (needsPayment) {
-      const deducted = await ledger.deduct(callerId, price, {
+      const deductResult = await ledger.deduct(callerId, price, {
         callId,
         tool: tool.name,
         amount: price,
       });
 
-      if (!deducted) {
+      if (!deductResult.success) {
         // Insufficient balance — handle based on policy
         const failureResult = await this.handlePaymentFailure(
           tool,
@@ -403,27 +413,23 @@ export class ToolGate {
         );
         const isFallbackResult =
           failureResult.success && failureResult.isFallback;
-        return finalize(
-          failureResult,
-          {
-            decision: isFallbackResult ? "fallback_response" : "topup_required",
-            handlerStatus: isFallbackResult ? "not_started" : "not_started",
-            fallbackUsed: isFallbackResult,
-            chargeStatus: "none",
-            failureClass: "insufficient_balance",
-          },
-          isFallbackResult ? "fallback_served" : "requires_payment",
-        );
+        return finalize(failureResult, {
+          decision: isFallbackResult ? "fallback_response" : "topup_required",
+          handlerStatus: "not_started",
+          fallbackUsed: isFallbackResult,
+          chargeStatus: "none",
+          failureClass: "insufficient_balance",
+        });
       }
 
       // Payment hook
-      this.config.hooks?.onPayment?.(tool.name, callerId, price);
+      this.config.hooks?.onPayment?.(tool.name, callerId, toNumber(price));
       trace.chargeStatus = "charged";
       trace.rail = "prepaid";
       trace.events.push({
         timestamp: Date.now(),
         event: "payment_deducted",
-        detail: `$${price}`,
+        detail: toDecimalString(price),
       });
     }
 
@@ -443,15 +449,11 @@ export class ToolGate {
           success: false,
           output: { error: "Execution aborted by beforeExecute hook" },
         };
-        return finalize(
-          abortResult,
-          {
-            handlerStatus: "failed",
-            chargeStatus: needsPayment ? "refunded" : "none",
-            decision: "no_charge",
-          },
-          "failed",
-        );
+        return finalize(abortResult, {
+          handlerStatus: "failed",
+          chargeStatus: needsPayment ? "refunded" : "none",
+          decision: "no_charge",
+        });
       }
     }
 
@@ -477,11 +479,25 @@ export class ToolGate {
       const endedAt = Date.now();
       metrics = { durationMs: endedAt - startedAt, startedAt, endedAt };
 
-      // Refund on execution failure
+      // Refund on execution failure — rail-aware recovery
+      const railName = trace.rail ?? "prepaid";
+      const capabilities = getCapabilities(railName);
+      const recovery = determineRecovery(capabilities, true, needsPayment);
+
       if (needsPayment) {
         await ledger.credit(callerId, price, {
           source: "manual",
           reference: `refund:${callId}:error`,
+        });
+        trace.events.push({
+          timestamp: Date.now(),
+          event: "recovery_initiated",
+          detail: recovery.recoveryAction,
+        });
+        trace.events.push({
+          timestamp: Date.now(),
+          event: "recovery_completed",
+          detail: toDecimalString(price),
         });
       }
 
@@ -496,18 +512,17 @@ export class ToolGate {
         output: { error: (error as Error).message },
         metrics,
       };
-      return finalize(
-        errorResult,
-        {
-          handlerStatus: "failed",
-          durationMs: metrics.durationMs,
-          chargeStatus: needsPayment ? "refunded" : "none",
-          decision: "refund",
-          failureClass: "tool_failed",
-          refundReason: (error as Error).message,
-        },
-        "failed",
-      );
+      return finalize(errorResult, {
+        handlerStatus: "failed",
+        durationMs: metrics.durationMs,
+        chargeStatus: needsPayment
+          ? (recovery.chargeOutcome as ExecutionTrace["chargeStatus"])
+          : "none",
+        recoveryAction: recovery.recoveryAction,
+        decision: recovery.recoveryAction,
+        failureClass: "tool_failed",
+        refundReason: (error as Error).message,
+      });
     }
 
     // ── Step 5b: Track usage for free tier calls ───────────
@@ -520,25 +535,22 @@ export class ToolGate {
 
     if (isPostpaid && tool.meter) {
       const meterResult = await tool.meter(input, output, metrics!);
-      price = meterResult.amount;
+      price = usd(meterResult.amount);
 
-      const deducted = await ledger.deduct(callerId, price, {
+      const postpaidDeduct = await ledger.deduct(callerId, price, {
         callId,
         tool: tool.name,
         amount: price,
       });
 
-      if (!deducted) {
-        // Postpaid but can't pay — still return result but flag it
-        // (debatable: could also withhold. MVP: return + flag)
-      } else {
-        this.config.hooks?.onPayment?.(tool.name, callerId, price);
+      if (postpaidDeduct.success) {
+        this.config.hooks?.onPayment?.(tool.name, callerId, toNumber(price));
         trace.chargeStatus = "charged";
         trace.rail = "prepaid";
         trace.events.push({
           timestamp: Date.now(),
           event: "postpaid_metered",
-          detail: `$${price}`,
+          detail: toDecimalString(price),
         });
       }
     }
@@ -551,38 +563,33 @@ export class ToolGate {
 
     // ── Step 8: Build receipt ─────────────────────────────
 
-    const balanceAfter = await ledger.getBalance(callerId);
+    const balanceAfterMoney = await ledger.getBalance(callerId);
 
     const successResult: ToolCallResult = {
       success: true,
       output,
-      receipt:
-        price > 0
-          ? {
-              callId,
-              tool: tool.name,
-              amount: price,
-              currency: this.config.defaultCurrency,
-              rail: "prepaid",
-              balanceAfter,
-              timestamp: Date.now(),
-            }
-          : undefined,
+      receipt: !isZero(price)
+        ? {
+            callId,
+            tool: tool.name,
+            amount: toNumber(price),
+            currency: this.config.defaultCurrency,
+            rail: "prepaid",
+            balanceAfter: toNumber(balanceAfterMoney),
+            timestamp: Date.now(),
+          }
+        : undefined,
       metrics: metrics!,
       isFallback: false,
     };
 
-    return finalize(
-      successResult,
-      {
-        handlerStatus: "success",
-        durationMs: metrics!.durationMs,
-        finalAmount: price,
-        decision: skipPaymentGate ? "allow_once" : "execute",
-        chargeStatus: price > 0 && needsPayment ? "charged" : "none",
-      },
-      "completed",
-    );
+    return finalize(successResult, {
+      handlerStatus: "success",
+      durationMs: metrics!.durationMs,
+      finalAmount: price,
+      decision: skipPaymentGate ? "allow_once" : "execute",
+      chargeStatus: !isZero(price) && needsPayment ? "charged" : "none",
+    });
   }
 
   // ─── Payment Failure Handling ──────────────────────────
@@ -591,7 +598,7 @@ export class ToolGate {
     tool: PaidToolConfig,
     input: unknown,
     ctx: ExecutionContext,
-    requiredAmount: number,
+    requiredAmount: Money,
     callerId: string,
   ): Promise<ToolCallResult> {
     const policy = tool.onPaymentFailed ?? "block";
@@ -601,7 +608,7 @@ export class ToolGate {
       await tool.onPaymentFail(input, {
         code: "insufficient_balance",
         balance: ctx.balance,
-        required: requiredAmount,
+        required: toNumber(requiredAmount),
       });
     }
 
@@ -631,23 +638,24 @@ export class ToolGate {
     }
 
     // ── Block (default): return 402 ───────────────────────
+    const requiredNum = toNumber(requiredAmount);
     const paymentRequired: PaymentRequiredResponse = {
       status: 402,
       error: "payment_required",
       tool: tool.name,
-      amount: requiredAmount,
+      amount: requiredNum,
       currency: this.config.defaultCurrency,
       acceptedRails: this.config.paymentRails,
-      topUpUrl: `${this.config.topUpBaseUrl}?publisher=${this.config.publisherKey}&caller=${encodeURIComponent(callerId)}&amount=${Math.ceil(requiredAmount * 100)}`,
+      topUpUrl: `${this.config.topUpBaseUrl}?publisher=${this.config.publisherKey}&caller=${encodeURIComponent(callerId)}&amount=${requiredNum}`,
     };
 
-    // ── Rail adapters: fan-out settlement creation ────────
+    // ── Rail adapters: fan-out settlement creation ────
     if (this.config.railAdapters.length > 0) {
       const results = await Promise.allSettled(
         this.config.railAdapters.map((adapter) =>
           adapter.createChallenge({
             callerId,
-            amount: requiredAmount,
+            amount: requiredNum,
             currency: this.config.defaultCurrency,
             toolName: tool.name,
             publisherKey: this.config.publisherKey,
@@ -698,39 +706,37 @@ export class ToolGate {
     callerId: string,
     record: IdempotencyRecord,
     key: string,
+    _policy?: string,
   ): Promise<ToolCallResult> {
     const duplicatePolicy = tool.onDuplicate ?? "return_previous_result";
 
     // Fire duplicate detected hook
     if (tool.onDuplicateDetected) {
-      const balance = await this.config.ledger.getBalance(callerId);
+      const balanceMoney = await this.config.ledger.getBalance(callerId);
       const ctx: ExecutionContext = {
         callerId,
         callId: record.traceId,
         tool: tool.name,
         tier: "premium",
-        balance,
+        balance: toNumber(balanceMoney),
         timestamp: Date.now(),
       };
       await tool.onDuplicateDetected(input, record, ctx);
     }
 
     if (duplicatePolicy === "return_previous_result") {
-      if (record.status === "in_progress") {
-        // Previous call still running — block with a clear message
-        return {
-          success: false,
-          output: {
-            error:
-              "Duplicate request: a previous execution is still in progress.",
-            idempotencyKey: key,
-          },
-        };
-      }
       if (record.result) {
-        return record.result;
+        return record.result as ToolCallResult;
       }
-      // No stored result (shouldn't happen, but fall through to block)
+      // Record exists but no result yet (in_progress)
+      return {
+        success: false,
+        output: {
+          error:
+            "Duplicate request: a previous execution is still in progress.",
+          idempotencyKey: key,
+        },
+      };
     }
 
     if (duplicatePolicy === "block") {
@@ -743,22 +749,12 @@ export class ToolGate {
       };
     }
 
-    // "re_execute": delete the existing record and execute fresh
-    await this.config.idempotencyStore.delete(key);
+    // "re_execute": execute fresh (claim will have already reclaimed the key)
     return this.executeTool(tool, input, callerId);
   }
 }
 
 // ─── Helpers ─────────────────────────────────────────────
-
-async function resolvePrice(
-  spec: Exclude<PriceSpec, "postpaid">,
-  input: unknown,
-): Promise<number> {
-  if (typeof spec === "number") return spec;
-  if (typeof spec === "function") return await spec(input);
-  return 0;
-}
 
 function describePricing(tool: PaidToolConfig): string {
   if (tool.tiers) {
@@ -772,6 +768,13 @@ function describePricing(tool: PaidToolConfig): string {
   if (tool.price === "postpaid") return "usage-based (metered)";
   if (typeof tool.price === "number") return `$${tool.price}/call`;
   if (typeof tool.price === "function") return "dynamic pricing";
+  if (typeof tool.price === "string") return `$${tool.price}/call`;
+  if (
+    tool.price &&
+    typeof tool.price === "object" &&
+    "minorUnits" in tool.price
+  )
+    return `${toDecimalString(tool.price as import("./money.js").Money)}/call`;
   return "free";
 }
 

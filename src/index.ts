@@ -2,8 +2,46 @@
 export { ToolGate } from "./toolgate.js";
 export { InMemoryLedger } from "./ledger.js";
 
-// Phase 2: Idempotency & Trace stores
+// Phase 1A: Money — integer arithmetic for billing
+export {
+  usd,
+  usdc,
+  money,
+  add,
+  subtract,
+  multiply,
+  gte,
+  gt,
+  isZero,
+  toDecimalString,
+  toMinorUnits,
+  toNumber,
+  parsePriceInput,
+  resolvePriceInput,
+  isMoney,
+} from "./money.js";
+export type { Money, TransactionId, PriceInput } from "./money.js";
+
+// Phase 1B: Atomic idempotency store
 export { InMemoryIdempotencyStore } from "./idempotency.js";
+
+// Phase 1D: Recovery state machine
+export {
+  determineRecovery,
+  getCapabilities,
+  PREPAID_CAPABILITIES,
+  STRIPE_CAPABILITIES,
+  X402_CAPABILITIES,
+  MPP_CAPABILITIES,
+  RAIL_CAPABILITIES,
+} from "./recovery.js";
+export type {
+  RailCapabilities,
+  ChargeOutcome,
+  RecoveryDecision,
+} from "./recovery.js";
+
+// Phase 2: Trace store
 export { InMemoryTraceStore } from "./trace-store.js";
 
 // MCP Adapter
@@ -59,7 +97,7 @@ export type {
   X402Network,
   VerificationContext,
   SettlementResult,
-  // Phase 2: Failure/Recovery taxonomy
+  // Failure/Recovery taxonomy
   FailureClass,
   RecoveryAction,
   ExecutionTrace,
@@ -67,6 +105,8 @@ export type {
   IdempotencyStatus,
   IdempotencyRecord,
   IdempotencyStore,
+  ClaimResult,
+  SerializedError,
   TraceStore,
 } from "./types.js";
 

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { ToolGate, createMcpAdapter } from "../../dist/index.js";
+import { ToolGate, createMcpAdapter, usd } from "../../dist/index.js";
 import {
   createFakeFirecrawlTransport,
   createFirecrawlFallbackResult,
@@ -149,7 +149,7 @@ describe("Firecrawl MCP adapter path", () => {
       url: "https://example.com/pricing?a=1&b=2",
     };
 
-    await gate.ledger.credit(callerId, 1, {
+    await gate.ledger.credit(callerId, usd("1.00"), {
       source: "manual",
       reference: "firecrawl-test-credit",
     });

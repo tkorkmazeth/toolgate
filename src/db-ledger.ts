@@ -1,4 +1,6 @@
 import type { LedgerAdapter, DeductMeta, CreditMeta } from "./types.js";
+import { type Money, type TransactionId, usd, toNumber } from "./money.js";
+import { randomUUID } from "node:crypto";
 
 // DB abstraction layer to support multiple SQL backends (D1, Turso, SQLite).
 
@@ -79,13 +81,14 @@ export class DbLedger implements LedgerAdapter {
 
   // ─── Balance ───────────────────────────────────────────
 
-  async getBalance(callerId: string): Promise<number> {
+  async getBalance(callerId: string): Promise<Money> {
     const row = await this.db
       .prepare("SELECT balance FROM tg_balances WHERE caller_id = ?")
       .bind(callerId)
       .first<{ balance: number }>();
 
-    return row?.balance ?? 0;
+    // DB stores as REAL (float). Convert to Money via toFixed to avoid drift.
+    return usd((row?.balance ?? 0).toFixed(2));
   }
 
   /**
@@ -97,10 +100,11 @@ export class DbLedger implements LedgerAdapter {
    */
   async deduct(
     callerId: string,
-    amount: number,
+    amount: Money,
     meta: DeductMeta,
-  ): Promise<boolean> {
+  ): Promise<{ success: boolean; txId: TransactionId }> {
     const now = Date.now();
+    const amountNum = toNumber(amount);
 
     // Upsert balance row (initialise to 0 if first seen).
     await this.db
@@ -120,31 +124,33 @@ export class DbLedger implements LedgerAdapter {
              updated_at = ?
          WHERE caller_id = ? AND balance >= ?`,
       )
-      .bind(amount, now, callerId, amount)
+      .bind(amountNum, now, callerId, amountNum)
       .run();
 
     if (!result.success || (result.changes ?? 0) === 0) {
-      return false;
+      return { success: false, txId: "" };
     }
 
+    const txId = randomUUID();
     await this.db
       .prepare(
         `INSERT INTO tg_transactions
            (id, type, caller_id, amount, tool, reference, created_at)
          VALUES (?, 'deduct', ?, ?, ?, ?, ?)`,
       )
-      .bind(meta.callId, callerId, amount, meta.tool, meta.callId, now)
+      .bind(txId, callerId, amountNum, meta.tool, meta.callId, now)
       .run();
 
-    return true;
+    return { success: true, txId };
   }
 
   async credit(
     callerId: string,
-    amount: number,
+    amount: Money,
     meta: CreditMeta,
-  ): Promise<void> {
+  ): Promise<TransactionId> {
     const now = Date.now();
+    const amountNum = toNumber(amount);
     const txId = `credit_${meta.reference}_${now}`;
 
     // Upsert balance row.
@@ -155,7 +161,7 @@ export class DbLedger implements LedgerAdapter {
          ON CONFLICT(caller_id)
          DO UPDATE SET balance = ROUND(balance + ?, 6), updated_at = ?`,
       )
-      .bind(callerId, amount, now, amount, now)
+      .bind(callerId, amountNum, now, amountNum, now)
       .run();
 
     // Record transaction.
@@ -165,8 +171,10 @@ export class DbLedger implements LedgerAdapter {
            (id, type, caller_id, amount, source, reference, created_at)
          VALUES (?, 'credit', ?, ?, ?, ?, ?)`,
       )
-      .bind(txId, callerId, amount, meta.source, meta.reference, now)
+      .bind(txId, callerId, amountNum, meta.source, meta.reference, now)
       .run();
+
+    return txId;
   }
 
   // ─── Usage ─────────────────────────────────────────────

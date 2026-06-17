@@ -21,7 +21,9 @@ export interface ToolGateConfig {
    * Base URL for Stripe top-up redirect links included in 402 responses.
    * The SDK appends `?publisher=...&caller=...&amount=...` to this URL.
    * Must expose a GET endpoint that creates a Stripe Checkout and redirects.
-   * Defaults to the Toolgate hosted API.
+   *
+   * Self-hosting: set `TOOLGATE_TOPUP_URL` env var or pass this option.
+   * Defaults to the Toolgate hosted API (https://toolgate-api.talha-korkmazeth.workers.dev/pay).
    */
   topUpBaseUrl?: string;
   /** Idempotency store for duplicate request handling. Default: InMemoryIdempotencyStore */

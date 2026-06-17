@@ -5,7 +5,7 @@ Execution, billing, recovery, and idempotency for paid AI agent tool calls.
 
 Toolgate sits above payment rails and MCP transports. It adds fallback behavior, idempotent replay, execution traces, and refund or no-charge outcomes when the paid path fails.
 
-## What's New in 0.3.0-alpha.0
+## What's New in 0.3.0-beta.0
 
 - **Integer money** — All billing uses `Money` (bigint minor units). No more `0.1 + 0.2 = 0.30000000000000004` in production billing.
 - **Atomic idempotency** — `claim() / complete() / fail()` with lease expiry. Concurrent requests with the same key are safely blocked instead of double-charging.
@@ -122,12 +122,32 @@ The flow is intentionally explicit:
 
 | Rail                | Status                   | What's tested                                                                                                     | Guarantee                                                     |
 | ------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| Prepaid ledger      | **Production candidate** | Durable with Postgres adapter. Credit, debit, balance, idempotent replay. Integer money (no float drift).         | No double-charge. Refund = instant ledger credit.             |
+| Prepaid ledger      | **Production candidate** | Integer money (no float drift), atomic idempotency, webhook-safe credit, audit trail. SQLite/D1 backed.           | No double-charge. No float drift. Refund = instant credit-back. |
 | Stripe test mode    | **Validated**            | Real Stripe API. Checkout session creation, webhook signature verification, balance credit, duplicate protection. | Works with `sk_test_` keys.                                   |
 | Stripe production   | **Beta**                 | Same code as test mode. Requires production webhook endpoint deployment.                                          | Use at your own risk until design partner validation.         |
 | x402 (Base Sepolia) | **Experimental**         | Real USDC on Base Sepolia testnet. EIP-3009 signing, Coinbase facilitator verify+settle.                          | Settlement can be uncertain. Requires external wallet signer. |
 | x402 (mainnet)      | **Not tested**           | No mainnet testing performed.                                                                                     | Do not use with real funds without independent audit.         |
 | MPP                 | **Mocked**               | Adapter verification path and recovery behavior validated.                                                        | Spec-compliant mock only.                                     |
+
+> **Postgres adapter**: interface is designed and stable (`LedgerAdapter`, `IdempotencyStore`, `TraceStore`). Implementation ships in a future `@tkorkmaz/toolgate-postgres` package. Current production path is SQLite via `DbLedger` + `InMemoryIdempotencyStore` (safe for single-process deployments).
+
+## Self-Hosting
+
+By default the SDK links to the hosted Toolgate top-up API for Stripe checkout redirects.
+To self-host, point to your own endpoint:
+
+```ts
+// Option A: env var (works without code changes)
+process.env.TOOLGATE_TOPUP_URL = "https://api.yourapp.com/toolgate/pay";
+
+// Option B: constructor option
+const gate = new ToolGate({
+  publisherKey: "tg_your_key",
+  topUpBaseUrl: "https://api.yourapp.com/toolgate/pay",
+});
+```
+
+The endpoint receives `?publisher=...&caller=...&amount=...` and must redirect to a Stripe Checkout session.
 
 ## Outreach Gate
 

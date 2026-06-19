@@ -28,7 +28,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { ToolGate, createMcpAdapter } from "@tkorkmaz/toolgate";
+import { ToolGate, createMcpAdapter, usd, toNumber } from "@tkorkmaz/toolgate";
 
 // ─── Toolgate setup ──────────────────────────────────────────
 
@@ -43,7 +43,7 @@ const mcp = createMcpAdapter(gate, {
 });
 
 // Pre-load $1.00 demo balance so the server works out of the box.
-await gate.ledger.credit("demo-user", 1.0, {
+await gate.ledger.credit("demo-user", usd("1.00"), {
   source: "manual",
   reference: "demo-preload",
 });
@@ -100,7 +100,11 @@ server.tool(
       content: [
         {
           type: "text",
-          text: JSON.stringify({ caller_id, balance_usd: balance }, null, 2),
+          text: JSON.stringify(
+            { caller_id, balance_usd: toNumber(balance) },
+            null,
+            2,
+          ),
         },
       ],
     };
@@ -115,7 +119,7 @@ server.tool(
     caller_id: z.string().optional().describe("Caller ID (default: demo-user)"),
   },
   async ({ amount_usd, caller_id = "demo-user" }) => {
-    await gate.ledger.credit(caller_id, amount_usd, {
+    await gate.ledger.credit(caller_id, usd(amount_usd), {
       source: "manual",
       reference: `demo-topup-${Date.now()}`,
     });
@@ -127,7 +131,7 @@ server.tool(
           text: JSON.stringify(
             {
               added_usd: amount_usd,
-              new_balance_usd: balance,
+              new_balance_usd: toNumber(balance),
               note: "In production this is triggered by a Stripe webhook.",
             },
             null,

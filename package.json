@@ -27,6 +27,7 @@
     "package:dry-run": "npm pack --dry-run",
     "example:local": "npm run build && node examples/local-first-runtime/scenario.mjs",
     "test:sdk": "npm run build && node --test --test-force-exit src/__tests__/firecrawl-integration.test.mjs src/__tests__/local-first.test.mjs",
+    "test:scenarios": "npm run scenario:ledger && npm run scenario:mcp-e2e",
     "scenario:ledger": "npm run build && node examples/mcp-ledger-recovery/scenario.mjs",
     "scenario:stripe": "npm run build && node integrations/stripe-test-mode/scenario.mjs",
     "scenario:firecrawl": "npm run build && node integrations/firecrawl-mcp-toolgate/scenario-fake.mjs",

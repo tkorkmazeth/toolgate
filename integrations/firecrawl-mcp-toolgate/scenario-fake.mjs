@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { ToolGate, createMcpAdapter } from "../../dist/index.js";
+import { ToolGate, createMcpAdapter, usd, toNumber } from "../../dist/index.js";
 import {
   createFakeFirecrawlTransport,
   createFirecrawlFallbackResult,
@@ -77,7 +77,7 @@ async function runScenario() {
   assert.equal(fallbackTrace?.chargeStatus, "none");
   assert.equal(transport.calls.length, 0);
 
-  await gate.ledger.credit(callerId, 1, {
+  await gate.ledger.credit(callerId, usd("1.00"), {
     source: "manual",
     reference: "firecrawl-scenario-credit",
   });
@@ -98,7 +98,7 @@ async function runScenario() {
   assert.equal(paidResult._meta.toolgate.isFallback, false);
   assert.equal(paidOutput.mode, "premium");
   assert.equal(transport.calls.length, 1);
-  assert.equal(balanceBeforePaid - balanceAfterPaid, 0.25);
+  assert.equal(toNumber(balanceBeforePaid) - toNumber(balanceAfterPaid), 0.25);
 
   const duplicateResult = await tool.handler(paidInput, {
     sessionId: callerId,
@@ -107,7 +107,7 @@ async function runScenario() {
   const transportCallsAfterDuplicate = transport.calls.length;
 
   assert.deepEqual(duplicateResult, paidResult);
-  assert.equal(balanceAfterDuplicate, balanceAfterPaid);
+  assert.equal(toNumber(balanceAfterDuplicate), toNumber(balanceAfterPaid));
   assert.equal(transportCallsAfterDuplicate, 1);
   assert.equal(duplicateKeys.length, 1);
 
@@ -124,9 +124,9 @@ async function runScenario() {
   );
 
   assert.equal(errorResult.isError, true);
-  assert.equal(balanceAfterError, balanceBeforeError);
+  assert.equal(toNumber(balanceAfterError), toNumber(balanceBeforeError));
   assert.equal(transport.calls.length, 2);
-  assert.ok(["refund", "no_charge"].includes(errorTrace?.decision ?? ""));
+  assert.ok(["credit_back", "no_charge"].includes(errorTrace?.decision ?? ""));
 
   const traces = await gate.traces.toJSON({ toolName: "firecrawl_scrape" });
 
@@ -145,8 +145,8 @@ async function runScenario() {
       },
       {
         name: "payment_available_via_mcp",
-        balanceBefore: balanceBeforePaid,
-        balanceAfter: balanceAfterPaid,
+        balanceBefore: toNumber(balanceBeforePaid),
+        balanceAfter: toNumber(balanceAfterPaid),
         result: {
           success: !paidResult.isError,
           isFallback: paidResult._meta.toolgate.isFallback,
@@ -158,8 +158,8 @@ async function runScenario() {
         name: "duplicate_request",
         duplicateKeys,
         transportCalls: transportCallsAfterDuplicate,
-        balanceAfterFirst: balanceAfterPaid,
-        balanceAfterDuplicate,
+        balanceAfterFirst: toNumber(balanceAfterPaid),
+        balanceAfterDuplicate: toNumber(balanceAfterDuplicate),
         sameResult:
           JSON.stringify(duplicateResult) === JSON.stringify(paidResult),
       },
@@ -169,8 +169,8 @@ async function runScenario() {
           success: !errorResult.isError,
           error: errorResult.content[0].text,
         },
-        balanceBefore: balanceBeforeError,
-        balanceAfter: balanceAfterError,
+        balanceBefore: toNumber(balanceBeforeError),
+        balanceAfter: toNumber(balanceAfterError),
         trace: summarizeTrace(errorTrace),
       },
       {

@@ -33,5 +33,8 @@ jobs:
       - name: SDK import tests
         run: npm run test:sdk
 
+      - name: Acceptance scenarios
+        run: npm run test:scenarios
+
       - name: Package dry run
         run: npm run package:dry-run

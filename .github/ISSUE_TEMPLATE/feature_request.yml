@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest a runtime, adapter, trace, or developer-experience improvement
+title: "feat: "
+labels: ["enhancement", "needs triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What paid or quota-limited tool-call edge case are you trying to handle?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Durable idempotency
+        - Ledger adapter
+        - Pricing / policy
+        - Trace UI / trace export
+        - Stripe
+        - x402
+        - MPP
+        - MCP adapter
+        - Hosted product / dashboard
+        - Examples / docs
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context

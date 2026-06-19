@@ -1,0 +1,73 @@
+name: Bug report
+description: Report incorrect runtime, billing, recovery, or documentation behavior
+title: "bug: "
+labels: ["bug", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a Toolgate issue. For security-sensitive billing or payment verification problems, email talha.korkmazeth@gmail.com instead of filing a public issue.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Package version or commit SHA
+      placeholder: 0.3.0-beta.0
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Core runtime
+        - MCP adapter
+        - Ledger / idempotency
+        - Traces / recovery
+        - Stripe
+        - x402
+        - MPP
+        - Docs / examples
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Node.js, package manager, OS, ledger adapter, and payment rail if applicable.
+      placeholder: |
+        - Node:
+        - Package manager:
+        - OS:
+        - Ledger: InMemoryLedger / DbLedger / custom
+        - Rail: prepaid / Stripe / x402 / MPP
+    validations:
+      required: false
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Include commands, inputs, idempotency keys, and relevant trace fields if possible.
+      placeholder: |
+        1. npm run example:local
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or trace output
+      render: shell

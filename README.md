@@ -94,7 +94,7 @@ Current version: `0.3.0-beta.0`.
 | Area                         | Status                                                          |
 | ---------------------------- | --------------------------------------------------------------- |
 | Core runtime                 | Developer preview                                               |
-| In-memory ledger/idempotency | Single-process development and small deployments                |
+| In-memory ledger/idempotency | Local development and single-process prototypes                 |
 | SQLite / D1 ledger           | Local and single-process paths                                  |
 | Stripe test mode             | Validated with configured test credentials                      |
 | Stripe production            | Beta; validate your webhook and deployment path                 |
@@ -105,10 +105,17 @@ Current version: `0.3.0-beta.0`.
 
 Payment rails are optional adapters. The first-run path uses the local prepaid ledger.
 
+See [Known limitations](docs/KNOWN_LIMITATIONS.md) for the current boundaries around durable
+idempotency, Stripe production, x402 mainnet, and MPP.
+
 ## Docs
 
 - [MCP quickstart](docs/MCP_QUICKSTART.md)
 - [Advanced scenarios and payment rails](docs/ADVANCED_SCENARIOS.md)
+- [Known limitations](docs/KNOWN_LIMITATIONS.md)
+- [Recommended demo: paid Firecrawl-style extraction](docs/DEMO_USE_CASE.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
 - [Local runtime example](examples/local-first-runtime/scenario.mjs)
 
 ## License

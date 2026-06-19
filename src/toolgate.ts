@@ -61,7 +61,9 @@ export class ToolGate {
       topUpBaseUrl:
         config.topUpBaseUrl ??
         // Configurable via env for self-hosted deployments.
-        (typeof process !== "undefined" ? process.env?.TOOLGATE_TOPUP_URL : undefined) ??
+        (typeof process !== "undefined"
+          ? process.env?.TOOLGATE_TOPUP_URL
+          : undefined) ??
         "https://toolgate-api.talha-korkmazeth.workers.dev/pay",
       ledger: config.ledger ?? new InMemoryLedger(),
       hooks: config.hooks,

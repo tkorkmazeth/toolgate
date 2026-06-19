@@ -28,7 +28,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { ToolGate, createMcpAdapter } from "@tkorkmaz/toolgate";
+import { ToolGate, createMcpAdapter, usd, toNumber } from "@tkorkmaz/toolgate";
 
 // ─── Observability ───────────────────────────────────────────
 
@@ -63,7 +63,7 @@ const mcp = createMcpAdapter(gate, {
 });
 
 // Pre-load $2.00 demo balance
-await gate.ledger.credit("demo-user", 2.0, {
+await gate.ledger.credit("demo-user", usd("2.00"), {
   source: "manual",
   reference: "demo-preload",
 });
@@ -271,7 +271,7 @@ server.tool(
           text: JSON.stringify(
             {
               caller_id,
-              balance_usd: balance,
+              balance_usd: toNumber(balance),
               session_stats: stats,
             },
             null,
@@ -290,23 +290,23 @@ server.tool(
     caller_id: z.string().optional().describe("Caller ID (default: demo-user)"),
   },
   async ({ amount_usd, caller_id = "demo-user" }) => {
-    await gate.ledger.credit(caller_id, amount_usd, {
+      await gate.ledger.credit(caller_id, usd(amount_usd), {
       source: "manual",
       reference: `topup-${Date.now()}`,
     });
     const balance = await gate.ledger.getBalance(caller_id);
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(
-            { added_usd: amount_usd, new_balance_usd: balance },
-            null,
-            2,
-          ),
-        },
-      ],
-    };
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              { added_usd: amount_usd, new_balance_usd: toNumber(balance) },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
   },
 );
 

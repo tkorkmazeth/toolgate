@@ -5,6 +5,8 @@ import {
   createMcpAdapter,
   MppRailAdapter,
   X402RailAdapter,
+  usd,
+  toNumber,
 } from "../../dist/index.js";
 
 const DEMO_CALLER = "demo-agent";
@@ -25,7 +27,7 @@ export async function createLedgerExample() {
     handlerKind: "paper",
     paymentMetaFactory: async () => null,
     primeForPaid: async () => {
-      await gate.ledger.credit(DEMO_CALLER, 1, {
+      await gate.ledger.credit(DEMO_CALLER, usd("1.00"), {
         source: "manual",
         reference: "ledger-scenario-credit",
       });
@@ -171,7 +173,9 @@ export async function createX402Example() {
         query: "evidence cache",
       };
       const result = await env.invoke(args, meta);
-      const trace = await env.gate.traces.findByIdempotencyKey(env.idempotencyKey(args));
+      const trace = await env.gate.traces.findByIdempotencyKey(
+        env.idempotencyKey(args),
+      );
       return {
         name: "settlement_uncertain",
         result: normalizeResult(result),
@@ -408,7 +412,8 @@ function makeFallbackPayload(kind, args) {
 }
 
 function normalizeResult(result) {
-  const first = result.content?.[0]?.type === "text" ? result.content[0].text : null;
+  const first =
+    result.content?.[0]?.type === "text" ? result.content[0].text : null;
   return {
     isError: Boolean(result.isError),
     output: parseText(first),
@@ -418,13 +423,19 @@ function normalizeResult(result) {
 
 function normalizeMeta(meta) {
   if (!meta || typeof meta !== "object") return null;
-  const toolgate = meta.toolgate && typeof meta.toolgate === "object" ? meta.toolgate : null;
+  const toolgate =
+    meta.toolgate && typeof meta.toolgate === "object" ? meta.toolgate : null;
   if (!toolgate) return null;
   return {
     paid: Boolean(toolgate.paid),
     isFallback: Boolean(toolgate.isFallback),
-    acceptedRails: Array.isArray(toolgate.acceptedRails) ? toolgate.acceptedRails : undefined,
-    amount: typeof toolgate.amount === "number" ? roundMoney(toolgate.amount) : undefined,
+    acceptedRails: Array.isArray(toolgate.acceptedRails)
+      ? toolgate.acceptedRails
+      : undefined,
+    amount:
+      typeof toolgate.amount === "number"
+        ? roundMoney(toolgate.amount)
+        : undefined,
   };
 }
 
@@ -454,6 +465,9 @@ function parseText(text) {
 }
 
 function roundMoney(value) {
+  if (value && typeof value === "object" && "minorUnits" in value) {
+    return roundMoney(toNumber(value));
+  }
   return Math.round(value * 10000) / 10000;
 }
 
@@ -464,7 +478,9 @@ async function startFacilitatorServer() {
 
     if (request.url === "/verify") {
       response.writeHead(200, { "Content-Type": "application/json" });
-      response.end(JSON.stringify({ valid: payload.proof?.startsWith("x402-") }));
+      response.end(
+        JSON.stringify({ valid: payload.proof?.startsWith("x402-") }),
+      );
       return;
     }
 

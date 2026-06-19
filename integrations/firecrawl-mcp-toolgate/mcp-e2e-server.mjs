@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { ToolGate, createMcpAdapter } from "../../dist/index.js";
+import { ToolGate, createMcpAdapter, usd, toNumber } from "../../dist/index.js";
 import {
   createFakeFirecrawlTransport,
   createFirecrawlFallbackResult,
@@ -47,7 +47,7 @@ server.tool(
     amount_usd: z.number().min(0.01).max(100),
   },
   async ({ amount_usd }) => {
-    await gate.ledger.credit(callerId, amount_usd, {
+    await gate.ledger.credit(callerId, usd(amount_usd), {
       source: "manual",
       reference: `mcp-e2e-topup-${Date.now()}`,
     });
@@ -60,7 +60,7 @@ server.tool(
             {
               callerId,
               added_usd: amount_usd,
-              new_balance_usd: balance,
+              new_balance_usd: toNumber(balance),
             },
             null,
             2,

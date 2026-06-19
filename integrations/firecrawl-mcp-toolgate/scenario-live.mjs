@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { ToolGate, createMcpAdapter } from "../../dist/index.js";
+import { ToolGate, createMcpAdapter, usd, toNumber } from "../../dist/index.js";
 import {
   createFirecrawlFallbackResult,
   createFirecrawlIdempotencyKey,
@@ -84,7 +84,7 @@ async function runLiveScenario() {
   assert.equal(fallbackTrace?.chargeStatus, "none");
   assert.equal(transport.calls.length, 0);
 
-  await gate.ledger.credit(callerId, 1, {
+  await gate.ledger.credit(callerId, usd("1.00"), {
     source: "manual",
     reference: "firecrawl-live-credit",
   });
@@ -107,7 +107,7 @@ async function runLiveScenario() {
   assert.equal(typeof paidOutput.result?.markdown, "string");
   assert.ok(paidOutput.result.markdown.length > 0);
   assert.equal(transport.calls.length, 1);
-  assert.equal(balanceBeforePaid - balanceAfterPaid, 0.25);
+  assert.equal(toNumber(balanceBeforePaid) - toNumber(balanceAfterPaid), 0.25);
   assert.equal(paidTrace?.chargeStatus, "charged");
   assert.equal(paidTrace?.handlerStatus, "success");
   assert.ok(
@@ -123,7 +123,7 @@ async function runLiveScenario() {
   const balanceAfterDuplicate = await gate.ledger.getBalance(callerId);
 
   assert.deepEqual(duplicateResult, paidResult);
-  assert.equal(balanceAfterDuplicate, balanceAfterPaid);
+  assert.equal(toNumber(balanceAfterDuplicate), toNumber(balanceAfterPaid));
   assert.equal(transport.calls.length, 1);
   assert.equal(duplicateKeys.length, 1);
 
@@ -144,8 +144,8 @@ async function runLiveScenario() {
       },
       {
         name: "payment_available_live_scrape_via_mcp",
-        balanceBefore: balanceBeforePaid,
-        balanceAfter: balanceAfterPaid,
+        balanceBefore: toNumber(balanceBeforePaid),
+        balanceAfter: toNumber(balanceAfterPaid),
         metadata: paidOutput.result?.metadata ?? null,
         markdownPreview: previewMarkdown(paidOutput.result?.markdown),
         trace: summarizeTrace(paidTrace),
@@ -153,8 +153,8 @@ async function runLiveScenario() {
       {
         name: "duplicate_request",
         duplicateKeys,
-        balanceAfterFirst: balanceAfterPaid,
-        balanceAfterDuplicate,
+        balanceAfterFirst: toNumber(balanceAfterPaid),
+        balanceAfterDuplicate: toNumber(balanceAfterDuplicate),
         transportCalls: transport.calls.length,
       },
       {

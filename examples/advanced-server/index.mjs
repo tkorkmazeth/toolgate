@@ -290,23 +290,23 @@ server.tool(
     caller_id: z.string().optional().describe("Caller ID (default: demo-user)"),
   },
   async ({ amount_usd, caller_id = "demo-user" }) => {
-      await gate.ledger.credit(caller_id, usd(amount_usd), {
+    await gate.ledger.credit(caller_id, usd(amount_usd), {
       source: "manual",
       reference: `topup-${Date.now()}`,
     });
     const balance = await gate.ledger.getBalance(caller_id);
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              { added_usd: amount_usd, new_balance_usd: toNumber(balance) },
-              null,
-              2,
-            ),
-          },
-        ],
-      };
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            { added_usd: amount_usd, new_balance_usd: toNumber(balance) },
+            null,
+            2,
+          ),
+        },
+      ],
+    };
   },
 );
 

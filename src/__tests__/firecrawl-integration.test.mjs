@@ -25,7 +25,7 @@ function createRegisteredFirecrawlTool({ gate, transport, duplicateKeys }) {
   mcp.paidTool("firecrawl_scrape", {
     description: "Paid wrapper for the Firecrawl MCP scrape tool",
     inputSchema: firecrawlScrapeInputSchema,
-    price: 0.25,
+    price: usd("0.25"),
     onPaymentFailed: "fallback",
     idempotencyKey: createFirecrawlIdempotencyKey,
     onDuplicateDetected: async (_input, record) => {

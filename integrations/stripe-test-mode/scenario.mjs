@@ -9,6 +9,8 @@ import {
   ToolGate,
   StripeAdapter,
   createWebhookHandler,
+  toNumber,
+  usd,
 } from "../../dist/index.js";
 
 const publisherKey = "tg_stripe_test_mode";
@@ -53,7 +55,13 @@ function loadEnvFile(filePath) {
 }
 
 function printSummary(summary) {
-  process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+  process.stdout.write(
+    `${JSON.stringify(
+      summary,
+      (_key, value) => (typeof value === "bigint" ? value.toString() : value),
+      2,
+    )}\n`,
+  );
 }
 
 function runCommand(command, args, env = process.env) {
@@ -162,7 +170,7 @@ async function runScenario() {
   const paidLookup = gate.paidAction({
     name: "premium_lookup",
     description: "Stripe recovery acceptance scenario",
-    price: 0.25,
+    price: usd("0.25"),
     onPaymentFailed: "block",
     idempotencyKey: (input, currentCallerId) =>
       `premium_lookup:${currentCallerId}:${String(input.requestId)}`,
@@ -332,7 +340,7 @@ async function runScenario() {
 
     assert.equal(webhook.result.processed, true);
     assert.equal(webhook.result.duplicate, undefined);
-    assert.equal(await gate.ledger.getBalance(callerId), 1);
+    assert.equal(toNumber(await gate.ledger.getBalance(callerId)), 1);
     assert.equal(retrievedSession.id, checkoutSession.id);
 
     const paidInput = {
@@ -348,7 +356,7 @@ async function runScenario() {
     assert.deepEqual(duplicateResult, paidResult);
 
     const balanceAfterExecution = await gate.ledger.getBalance(callerId);
-    assert.equal(balanceAfterExecution, 0.75);
+    assert.equal(toNumber(balanceAfterExecution), 0.75);
 
     if (paidTrace) {
       paidTrace.receiptId = checkoutSession.id;
@@ -379,7 +387,10 @@ async function runScenario() {
     const finalTrace = await gate.traces.findByIdempotencyKey(paidTraceKey);
 
     assert.equal(duplicateWebhookResult.duplicate, true);
-    assert.equal(balanceAfterDuplicateWebhook, balanceBeforeDuplicateWebhook);
+    assert.equal(
+      toNumber(balanceAfterDuplicateWebhook),
+      toNumber(balanceBeforeDuplicateWebhook),
+    );
     assert.equal(finalTrace?.provider?.correlationId, checkoutSession.id);
     assert.equal(finalTrace?.provider?.traceId ?? null, paymentIntentId);
 
@@ -420,8 +431,10 @@ async function runScenario() {
         {
           name: "duplicate_webhook",
           result: duplicateWebhookResult,
-          balanceBeforeDuplicateWebhook,
-          balanceAfterDuplicateWebhook,
+          balanceBeforeDuplicateWebhook: toNumber(
+            balanceBeforeDuplicateWebhook,
+          ),
+          balanceAfterDuplicateWebhook: toNumber(balanceAfterDuplicateWebhook),
         },
       ],
       notes: {

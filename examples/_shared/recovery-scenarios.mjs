@@ -23,7 +23,7 @@ export async function createLedgerExample() {
     category: "paper/search MCP local adapter",
     gate,
     toolName: "paper_search",
-    price: 0.15,
+    price: usd("0.15"),
     handlerKind: "paper",
     paymentMetaFactory: async () => null,
     primeForPaid: async () => {
@@ -71,7 +71,7 @@ export async function createMppExample() {
     category: "scraping/extraction MCP paid step",
     gate,
     toolName: "extract_document",
-    price: 0.2,
+    price: usd("0.20"),
     handlerKind: "extract",
     paymentMetaFactory: async () => {
       const challenge = await mppAdapter.createChallenge({
@@ -125,7 +125,7 @@ export async function createX402Example() {
     category: "paid API wrapper MCP",
     gate,
     toolName: "partner_api_lookup",
-    price: 0.3,
+    price: usd("0.30"),
     handlerKind: "api",
     paymentMetaFactory: async (mode = "success") => {
       const challenge = await x402Adapter.createChallenge({

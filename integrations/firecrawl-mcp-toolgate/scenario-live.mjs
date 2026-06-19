@@ -31,7 +31,7 @@ function createRegisteredFirecrawlTool({ gate, transport, duplicateKeys }) {
   mcp.paidTool("firecrawl_scrape", {
     description: "Paid wrapper for the Firecrawl MCP scrape tool",
     inputSchema: firecrawlScrapeInputSchema,
-    price: 0.25,
+    price: usd("0.25"),
     onPaymentFailed: "fallback",
     idempotencyKey: createFirecrawlIdempotencyKey,
     onDuplicateDetected: async (_input, record) => {
@@ -174,6 +174,27 @@ try {
   const summary = await runLiveScenario();
   process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
 } catch (error) {
-  process.stderr.write(`${(error && error.message) || String(error)}\n`);
-  process.exitCode = 1;
+  const message = (error && error.message) || String(error);
+  if (message.includes("Missing FIRECRAWL_API_KEY")) {
+    process.stdout.write(
+      `${JSON.stringify(
+        {
+          integration: "firecrawl-mcp-toolgate-live",
+          blocked: true,
+          blocker: {
+            reason: "missing_env",
+            required: ["FIRECRAWL_API_KEY"],
+            details:
+              "Export FIRECRAWL_API_KEY in the terminal before running the live Firecrawl scenario.",
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    process.exitCode = 0;
+  } else {
+    process.stderr.write(`${message}\n`);
+    process.exitCode = 1;
+  }
 }

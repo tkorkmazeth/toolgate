@@ -1,16 +1,65 @@
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   ToolGate,
   X402RailAdapter,
   createMcpAdapter,
+  usd,
 } from "../../dist/index.js";
+
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+
+loadEnvFile(path.resolve(currentDir, "../../.env"));
+loadEnvFile(path.resolve(currentDir, ".env"));
 
 export const callerId = "x402-testnet-caller";
 export const publisherKey = "tg_x402_testnet";
 export const toolName = "partner_api_lookup";
 export const defaultAmount = 0.3;
 
+function loadEnvFile(filePath) {
+  if (!existsSync(filePath)) {
+    return;
+  }
+
+  const source = readFileSync(filePath, "utf8");
+  for (const line of source.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) {
+      continue;
+    }
+
+    const separator = trimmed.indexOf("=");
+    if (separator === -1) {
+      continue;
+    }
+
+    const key = trimmed.slice(0, separator).trim();
+    let value = trimmed.slice(separator + 1).trim();
+    if (!key || process.env[key]) {
+      continue;
+    }
+
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    process.env[key] = value;
+  }
+}
+
 export function printSummary(summary) {
-  process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+  process.stdout.write(
+    `${JSON.stringify(
+      summary,
+      (_key, value) => (typeof value === "bigint" ? value.toString() : value),
+      2,
+    )}\n`,
+  );
 }
 
 export function parseJsonEnv(name) {
@@ -56,7 +105,7 @@ export function createRegistration(gate, duplicateKeys) {
       },
       required: ["requestId", "query"],
     },
-    price: defaultAmount,
+    price: usd("0.30"),
     onPaymentFailed: "fallback",
     idempotencyKey: (args, currentCallerId) =>
       `${toolName}:${currentCallerId}:${String(args.requestId)}`,
@@ -97,7 +146,7 @@ export function createBlockingRegistration(gate) {
       },
       required: ["requestId", "query"],
     },
-    price: defaultAmount,
+    price: usd("0.30"),
     onPaymentFailed: "block",
     idempotencyKey: (args, currentCallerId) =>
       `${toolName}_blocking:${currentCallerId}:${String(args.requestId)}`,

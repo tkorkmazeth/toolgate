@@ -49,6 +49,7 @@ export class ToolGate {
     idempotencyStore: IdempotencyStore;
     traceStore: TraceStore;
     idempotencyTtlSeconds: number;
+    waitForInProgressMs: number;
   };
 
   private tools = new Map<string, PaidToolConfig>();
@@ -73,6 +74,7 @@ export class ToolGate {
         config.idempotencyStore ?? new InMemoryIdempotencyStore(),
       traceStore: config.traceStore ?? new InMemoryTraceStore(),
       idempotencyTtlSeconds: config.idempotencyTtlSeconds ?? 3600,
+      waitForInProgressMs: config.waitForInProgressMs ?? 5000,
     };
   }
 
@@ -175,7 +177,23 @@ export class ToolGate {
     }
 
     if (claimResult.status === "in_progress") {
-      // Another execution is actively running — block concurrent request
+      // Another execution holds an active lease. Rather than rejecting the
+      // duplicate outright, wait for the in-flight execution to finish and
+      // replay its result — this is what collapses N parallel identical
+      // calls into a single charge and a single provider call.
+      const completed = await this.waitForCompletion(idempotencyKey);
+      if (completed) {
+        return this.handleDuplicate(
+          tool,
+          input,
+          callerId,
+          completed,
+          idempotencyKey,
+          "return_previous_result",
+        );
+      }
+      // Timed out, or the in-flight execution failed/vanished. Surface a
+      // clear signal; the caller (or agent) can safely retry.
       return {
         success: false,
         output: {
@@ -704,6 +722,32 @@ export class ToolGate {
     return `auto_${tool.name}_${callerId}_${hashSync(input)}`;
   }
 
+  /**
+   * Poll an in-flight idempotency key until its execution completes, then
+   * return the completed record for replay. Returns null if the wait budget
+   * elapses, the in-flight execution failed, or the record disappeared
+   * (TTL/cleared) — in all of which cases the caller should not replay.
+   */
+  private async waitForCompletion(
+    key: string,
+  ): Promise<IdempotencyRecord | null> {
+    const budgetMs = this.config.waitForInProgressMs;
+    if (budgetMs <= 0) return null;
+
+    const deadline = Date.now() + budgetMs;
+    const pollIntervalMs = 25;
+
+    while (Date.now() < deadline) {
+      await sleep(pollIntervalMs);
+      const record = await this.config.idempotencyStore.peek(key);
+      if (!record) return null; // record gone — let the caller retry
+      if (record.status === "completed") return record; // replay this
+      if (record.status === "failed") return null; // not a replayable result
+      // still in_progress → keep waiting
+    }
+    return null;
+  }
+
   private async handleDuplicate(
     tool: PaidToolConfig,
     input: unknown,
@@ -759,6 +803,10 @@ export class ToolGate {
 }
 
 // ─── Helpers ─────────────────────────────────────────────
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function describePricing(tool: PaidToolConfig): string {
   if (tool.tiers) {

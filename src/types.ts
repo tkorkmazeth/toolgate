@@ -35,6 +35,17 @@ export interface ToolGateConfig {
    * Default: 3600 (1 hour).
    */
   idempotencyTtlSeconds?: number;
+  /**
+   * When a concurrent duplicate hits a key whose execution is still
+   * in-flight, how long (ms) to wait for that execution to finish before
+   * replaying its result. This is what collapses N parallel identical
+   * calls into one charge and one provider call: the winner executes,
+   * the rest wait and replay the cached result.
+   *
+   * Set to 0 to disable waiting (concurrent duplicates fail fast with an
+   * "in progress" error — the pre-1.x behaviour). Default: 5000.
+   */
+  waitForInProgressMs?: number;
 }
 
 export type PaymentRail = "stripe" | "x402" | "mpp";

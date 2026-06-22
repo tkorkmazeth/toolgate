@@ -39,7 +39,7 @@
     "scenario:x402-testnet:challenge": "npm run build && node examples/x402-testnet-recovery/challenge.mjs",
     "scenario:x402-testnet:sign": "npm run build && node examples/x402-testnet-recovery/challenge.mjs | node examples/x402-testnet-recovery/sign-payload.mjs",
     "scenario:x402-testnet": "npm run build && node integrations/x402-testnet/scenario.mjs",
-    "test": "npm run build && node --test --test-force-exit src/__tests__/paidTool.test.mjs src/__tests__/mcp-adapter.test.mjs src/__tests__/stripe.test.mjs src/__tests__/webhook-handler.test.mjs src/__tests__/db-ledger.test.mjs src/__tests__/rail-adapter.test.mjs src/__tests__/policy.test.mjs src/__tests__/protocol-compliance.test.mjs src/__tests__/idempotency.test.mjs src/__tests__/trace.test.mjs src/__tests__/firecrawl-integration.test.mjs src/__tests__/local-first.test.mjs",
+    "test": "npm run build && node --test --test-force-exit src/__tests__/paidTool.test.mjs src/__tests__/mcp-adapter.test.mjs src/__tests__/stripe.test.mjs src/__tests__/webhook-handler.test.mjs src/__tests__/db-ledger.test.mjs src/__tests__/rail-adapter.test.mjs src/__tests__/policy.test.mjs src/__tests__/protocol-compliance.test.mjs src/__tests__/idempotency.test.mjs src/__tests__/concurrency.test.mjs src/__tests__/trace.test.mjs src/__tests__/firecrawl-integration.test.mjs src/__tests__/local-first.test.mjs",
     "prepublishOnly": "npm run typecheck && npm test"
   },
   "keywords": [

@@ -2,3 +2,6 @@ node_modules/
 dist/
 *.log
 .DS_Store
+
+# Local devnet payer keypair written by examples/x402-solana-recovery/devnet-settle.mjs
+.devnet-payer.json

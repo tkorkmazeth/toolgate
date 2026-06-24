@@ -63,8 +63,12 @@ describe("x402 Solana signer", () => {
 
     // ── payload envelope ──
     assert.equal(paymentPayload.x402Version, 2);
-    assert.equal(paymentPayload.scheme, "exact");
-    assert.equal(paymentPayload.network, SOLANA_DEVNET);
+    // x402 v2 embeds the accepted requirement; amount is an atomic STRING.
+    assert.equal(paymentPayload.accepted.scheme, "exact");
+    assert.equal(paymentPayload.accepted.network, SOLANA_DEVNET);
+    assert.equal(paymentPayload.accepted.amount, "50000");
+    assert.equal(paymentPayload.accepted.asset, DEVNET_USDC);
+    assert.equal(paymentPayload.accepted.extra.feePayer, facilitator.publicKey.toBase58());
     assert.ok(
       typeof paymentPayload.payload.transaction === "string",
       "transaction is a base64 string",

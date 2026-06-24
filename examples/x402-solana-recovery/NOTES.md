@@ -66,6 +66,37 @@ await rail.discoverFeePayer();   // pulls extra.feePayer from /supported
 - **Coinbase CDP** — Base + Solana; free tier (~1k tx/mo).
 - **Self-hosted (Kora)** — run your own signer node / facilitator.
 
+## Verified on devnet
+
+Run end-to-end against PayAI + Solana devnet with `devnet-settle.mjs`
+(self-transfer smoke test; fund the printed address once at
+https://faucet.circle.com → "Solana Devnet"):
+
+```bash
+node examples/x402-solana-recovery/devnet-settle.mjs
+# … /verify → VALID ✅   /settle → SETTLED ✅
+# tx: 5JeSK1je6xrt3HouPUSKheawqiwJhVPtSufqyzNgyqCLBKSZ11KrvtyE5PoxQKEzMKCNfyRTuezVuv39j93TqdGx
+```
+
+A confirmed devnet settle (`err: None`) had its **fee paid by the facilitator's
+fee payer, not the client** — the gasless SVM design working as intended.
+
+### Protocol details learned from a live facilitator
+
+The SVM "exact" v2 wire format is stricter than the EVM path. Getting verify to
+pass required:
+
+- The `paymentPayload` must embed the agreed requirement under **`accepted`**,
+  and the amount there is an **atomic string** field named **`amount`** (not
+  `maxAmountRequired`). The signer emits this shape.
+- The transaction's **compute-unit limit is bounded**: too high (~50k+) is
+  rejected (`compute_limit_too_high`), and too low (≤10k) fails simulation. The
+  signer defaults to 30k, with compute-unit price clamped to ≤ 5.
+- The fee payer must be account[0] and a non-participant in the transfer.
+
+The rail's `verify`/`settle` request bodies were already correct for v2 — the
+fixes were entirely client-side in the signer.
+
 ## Tests
 
 - `src/__tests__/x402-solana-rail.test.mjs` — challenge shape, fee-payer

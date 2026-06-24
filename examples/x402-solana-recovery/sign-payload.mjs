@@ -81,7 +81,9 @@ export function extractSolanaRequirement(challenge) {
  * @param {string}  [args.rpcUrl]         RPC endpoint to fetch a recent blockhash
  * @param {string}  [args.blockhash]      Explicit blockhash (skips RPC; for tests)
  * @param {string}  [args.memo]           Override memo (defaults to a random nonce)
- * @param {number}  [args.computeUnitLimit=120000]
+ * @param {number}  [args.computeUnitLimit=30000] Bounded by the SVM "exact"
+ *   scheme: facilitators reject limits that are too high (~50k+) and a transfer
+ *   needs more than ~10k, so the default sits comfortably in between.
  * @param {number}  [args.computeUnitPrice=1] microLamports/CU (clamped to ≤ 5)
  */
 export async function buildSolanaPaymentPayload({
@@ -90,7 +92,7 @@ export async function buildSolanaPaymentPayload({
   rpcUrl,
   blockhash,
   memo,
-  computeUnitLimit = 120_000,
+  computeUnitLimit = 30_000,
   computeUnitPrice = 1,
 }) {
   const { web3, splToken } = await loadSolana();
@@ -173,10 +175,22 @@ export async function buildSolanaPaymentPayload({
     transaction.serialize({ requireAllSignatures: false }),
   ).toString("base64");
 
-  const paymentPayload = {
-    x402Version: 2,
+  // The x402 v2 PaymentPayload embeds the `accepted` requirement the client
+  // agreed to. Facilitators validate the on-chain transaction against it, and
+  // expect the amount as an atomic STRING under `accepted.amount`.
+  const accepted = {
     scheme: requirement.scheme ?? "exact",
     network: requirement.network,
+    amount: String(requirement.maxAmountRequired ?? requirement.amount),
+    asset: requirement.asset,
+    payTo: requirement.payTo,
+    maxTimeoutSeconds: requirement.maxTimeoutSeconds ?? 300,
+    extra: requirement.extra,
+  };
+
+  const paymentPayload = {
+    x402Version: 2,
+    accepted,
     payload: { transaction: serialized },
   };
 

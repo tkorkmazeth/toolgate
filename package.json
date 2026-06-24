@@ -64,7 +64,7 @@
     "type": "git",
     "url": "git+https://github.com/niceberginc/tollgate.git"
   },
-  "homepage": "https://main.tollgate.pages.dev",
+  "homepage": "https://tollgate.niceberglabs.com/",
   "bugs": {
     "url": "https://github.com/niceberginc/tollgate/issues"
   },

@@ -24,6 +24,11 @@ export type { Money, TransactionId, PriceInput } from "./money.js";
 
 // Phase 1B: Atomic idempotency store
 export { InMemoryIdempotencyStore } from "./idempotency.js";
+// Phase 1C: Durable, cross-instance idempotency store (D1/Turso/SQLite)
+export {
+  DbIdempotencyStore,
+  DB_IDEMPOTENCY_SCHEMA,
+} from "./db-idempotency.js";
 
 // Phase 1D: Recovery state machine
 export {

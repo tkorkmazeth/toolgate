@@ -14,7 +14,29 @@ Use it for:
 - single-process prototypes,
 - deterministic SDK behavior tests.
 
-Do not treat it as multi-instance production-safe. Durable idempotency is future work.
+For multi-instance deployments, use `DbIdempotencyStore` — a durable store backed by a SQL
+database (Cloudflare D1, Turso/libsql, SQLite). It uses the same atomic primitives as
+`DbLedger` (`INSERT OR IGNORE` + conditional `UPDATE … WHERE`), so concurrent claimers across
+any number of workers collapse to a single owner with no check-then-act race:
+
+```ts
+import { ToolGate, DbIdempotencyStore } from "@tkorkmaz/toolgate";
+
+await DbIdempotencyStore.runMigrations(env.DB); // once, at startup
+const gate = new ToolGate({
+  publisherKey,
+  idempotencyStore: new DbIdempotencyStore(env.DB),
+});
+```
+
+`DbIdempotencyStore` is exercised in CI against a real SQLite engine, including an 8-process
+race on one shared database file that asserts exactly one claimer wins (the cross-instance
+guarantee, decided by the DB write lock rather than JS event-loop ordering). The same
+`DbClient` adapter shape maps to **Turso/libsql (`@libsql/client`), which is the intended
+production target**; SQLite is the local/CI engine for the same code path.
+
+Production deployments should still validate schema migrations, lease durations against their
+slowest handlers, and TTL settings against their retry windows.
 
 ## Ledgers
 

@@ -49,7 +49,7 @@ export interface X402RailConfig {
 
   /**
    * Resource URL template for the payment requirement.
-   * If not provided, defaults to "toolgate://{publisherKey}/{toolName}".
+   * If not provided, defaults to "tollgate://{publisherKey}/{toolName}".
    */
   resourceUrl?: string;
 
@@ -116,7 +116,7 @@ export class X402RailAdapter implements RailAdapter {
 
     const resource =
       this.config.resourceUrl ??
-      `toolgate://${params.publisherKey}/${params.toolName}`;
+      `tollgate://${params.publisherKey}/${params.toolName}`;
 
     const paymentRequirement: X402PaymentRequirement = {
       scheme: this.config.scheme ?? "exact",
@@ -128,9 +128,9 @@ export class X402RailAdapter implements RailAdapter {
       asset: this.getAssetAddress(),
       maxTimeoutSeconds: timeout,
       extra: {
-        toolgate_caller_id: params.callerId,
-        toolgate_tool: params.toolName,
-        toolgate_publisher: params.publisherKey,
+        tollgate_caller_id: params.callerId,
+        tollgate_tool: params.toolName,
+        tollgate_publisher: params.publisherKey,
       },
     };
 

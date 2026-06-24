@@ -6,7 +6,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  ToolGate,
+  TollGate,
   StripeAdapter,
   createWebhookHandler,
   toNumber,
@@ -163,7 +163,7 @@ async function runScenario() {
     return;
   }
 
-  const gate = new ToolGate({
+  const gate = new TollGate({
     publisherKey,
     paymentRails: ["stripe"],
   });
@@ -266,7 +266,7 @@ async function runScenario() {
     const stripeAdapter = new StripeAdapter({
       secretKey: process.env.STRIPE_SECRET_KEY,
       webhookSecret,
-      topUpBaseUrl: "https://pay.toolgate.dev",
+      topUpBaseUrl: "https://pay.tollgate.dev",
     });
     stripeClient = await stripeAdapter.getClient();
     webhookHandler = createWebhookHandler({
@@ -294,13 +294,13 @@ async function runScenario() {
     assert.ok(createdTopUpSession.url);
     assert.equal(createdSession.id, createdTopUpSession.sessionId);
     assert.equal(createdSession.url, createdTopUpSession.url);
-    assert.equal(createdSession.metadata?.toolgate_caller_id, callerId);
-    assert.equal(createdSession.metadata?.toolgate_publisher_id, publisherKey);
+    assert.equal(createdSession.metadata?.tollgate_caller_id, callerId);
+    assert.equal(createdSession.metadata?.tollgate_publisher_id, publisherKey);
     assert.equal(
-      createdSession.metadata?.toolgate_amount_cents,
+      createdSession.metadata?.tollgate_amount_cents,
       String(checkoutAmountCents),
     );
-    assert.equal(createdSession.metadata?.toolgate_currency, checkoutCurrency);
+    assert.equal(createdSession.metadata?.tollgate_currency, checkoutCurrency);
 
     const createdAmount =
       createdSession.amount_total ??
@@ -315,13 +315,13 @@ async function runScenario() {
       "--api-key",
       process.env.STRIPE_SECRET_KEY,
       "--override",
-      `checkout_session:metadata.toolgate_caller_id=${callerId}`,
+      `checkout_session:metadata.tollgate_caller_id=${callerId}`,
       "--override",
-      `checkout_session:metadata.toolgate_publisher_id=${publisherKey}`,
+      `checkout_session:metadata.tollgate_publisher_id=${publisherKey}`,
       "--override",
-      "checkout_session:metadata.toolgate_amount_cents=100",
+      "checkout_session:metadata.tollgate_amount_cents=100",
       "--override",
-      "checkout_session:metadata.toolgate_currency=usd",
+      "checkout_session:metadata.tollgate_currency=usd",
     ]);
 
     const webhook = await withTimeout(

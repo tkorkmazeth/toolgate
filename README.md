@@ -1,6 +1,6 @@
-# Toolgate
+# Tollgate
 
-Toolgate is an open-source runtime for reliable paid or quota-limited MCP/tool calls.
+Tollgate is an open-source runtime for reliable paid or quota-limited MCP/tool calls.
 It handles fallback, idempotent retries, metering, recovery, and execution traces so
 tool calls do not break or double-charge on edge cases.
 
@@ -28,10 +28,10 @@ x402, MPP, wallets, webhooks, hosted APIs, or environment variables.
 ## Minimal usage
 
 ```ts
-import { ToolGate, InMemoryLedger, usd } from "@tkorkmaz/toolgate";
+import { TollGate, InMemoryLedger, usd } from "@niceberglabs/tollgate";
 
 const ledger = new InMemoryLedger();
-const gate = new ToolGate({ publisherKey: "tg_local_demo", ledger });
+const gate = new TollGate({ publisherKey: "tg_local_demo", ledger });
 
 const search = gate.paidTool({
   name: "premium_search",
@@ -64,9 +64,9 @@ await search({ query: "vector dbs", requestId: "r2" }, "caller-1");
 ## MCP usage
 
 ```ts
-import { ToolGate, createMcpAdapter, usd } from "@tkorkmaz/toolgate";
+import { TollGate, createMcpAdapter, usd } from "@niceberglabs/tollgate";
 
-const gate = new ToolGate({ publisherKey: "tg_local_demo" });
+const gate = new TollGate({ publisherKey: "tg_local_demo" });
 const mcp = createMcpAdapter(gate, {
   getCallerId: (_args, extra) => extra?.sessionId ?? "demo-user",
 });

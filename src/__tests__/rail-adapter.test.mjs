@@ -58,7 +58,7 @@ class StripeRailAdapter {
     this.rail = "stripe";
     this.topUpBaseUrl =
       config?.topUpBaseUrl ??
-      "https://toolgate-api.talha-korkmazeth.workers.dev/pay";
+      "https://tollgate-api.talha-korkmazeth.workers.dev/pay";
   }
 
   async createChallenge(params) {
@@ -77,9 +77,9 @@ class StripeRailAdapter {
   }
 }
 
-// ─── Inline ToolGate (with railAdapters + paymentMode) ───
+// ─── Inline TollGate (with railAdapters + paymentMode) ───
 
-class ToolGate {
+class TollGate {
   constructor(config) {
     this.config = {
       publisherKey: config.publisherKey,
@@ -87,7 +87,7 @@ class ToolGate {
       paymentRails: config.paymentRails ?? ["stripe"],
       topUpBaseUrl:
         config.topUpBaseUrl ??
-        "https://toolgate-api.talha-korkmazeth.workers.dev/pay",
+        "https://tollgate-api.talha-korkmazeth.workers.dev/pay",
       ledger: config.ledger ?? new InMemoryLedger(),
       railAdapters: config.railAdapters ?? [],
       paymentMode: config.paymentMode ?? "hybrid",
@@ -271,10 +271,10 @@ describe("StripeRailAdapter", () => {
   });
 });
 
-describe("RailAdapter integration with ToolGate", () => {
+describe("RailAdapter integration with TollGate", () => {
   it("402 response includes settlements from registered rail adapters", async () => {
     const ledger = new InMemoryLedger(); // zero balance
-    const gate = new ToolGate({
+    const gate = new TollGate({
       publisherKey: "tg_pub_test",
       ledger,
       railAdapters: [mockAdapter("stripe")],
@@ -302,7 +302,7 @@ describe("RailAdapter integration with ToolGate", () => {
   });
 
   it("402 works with no rail adapters (backward compatible)", async () => {
-    const gate = new ToolGate({
+    const gate = new TollGate({
       publisherKey: "tg_pub_test",
       ledger: new InMemoryLedger(),
       // no railAdapters
@@ -327,7 +327,7 @@ describe("RailAdapter integration with ToolGate", () => {
   });
 
   it("multiple rail adapters produce multiple settlements", async () => {
-    const gate = new ToolGate({
+    const gate = new TollGate({
       publisherKey: "tg_pub_test",
       ledger: new InMemoryLedger(),
       railAdapters: [
@@ -355,7 +355,7 @@ describe("RailAdapter integration with ToolGate", () => {
   });
 
   it("failed rail adapter doesn't block 402 response", async () => {
-    const gate = new ToolGate({
+    const gate = new TollGate({
       publisherKey: "tg_pub_test",
       ledger: new InMemoryLedger(),
       railAdapters: [throwingAdapter(), mockAdapter("stripe")],
@@ -388,7 +388,7 @@ describe("RailAdapter integration with ToolGate", () => {
       },
     };
 
-    const gate = new ToolGate({
+    const gate = new TollGate({
       publisherKey: "tg_pub_xyz",
       defaultCurrency: "eur",
       ledger: new InMemoryLedger(),
@@ -426,12 +426,12 @@ describe("RailAdapter integration with ToolGate", () => {
   });
 
   it("paymentMode defaults to 'hybrid'", async () => {
-    const gate = new ToolGate({ publisherKey: "tg_pub_test" });
+    const gate = new TollGate({ publisherKey: "tg_pub_test" });
     assert.equal(gate.config.paymentMode, "hybrid");
   });
 
   it("paymentMode can be set explicitly", async () => {
-    const gate = new ToolGate({
+    const gate = new TollGate({
       publisherKey: "tg_pub_test",
       paymentMode: "per_request",
     });
@@ -455,7 +455,7 @@ describe("RailAdapter integration with ToolGate", () => {
       },
     };
 
-    const gate = new ToolGate({
+    const gate = new TollGate({
       publisherKey: "tg_pub_test",
       ledger: new InMemoryLedger(),
       railAdapters: [x402MockAdapter],

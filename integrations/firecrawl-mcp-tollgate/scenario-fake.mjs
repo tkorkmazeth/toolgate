@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { ToolGate, createMcpAdapter, usd, toNumber } from "../../dist/index.js";
+import { TollGate, createMcpAdapter, usd, toNumber } from "../../dist/index.js";
 import {
   createFakeFirecrawlTransport,
   createFirecrawlFallbackResult,
@@ -47,7 +47,7 @@ function createRegisteredFirecrawlTool({ gate, transport, duplicateKeys }) {
 }
 
 async function runScenario() {
-  const gate = new ToolGate({
+  const gate = new TollGate({
     publisherKey: "tg_firecrawl_demo",
     paymentRails: ["stripe"],
   });
@@ -71,7 +71,7 @@ async function runScenario() {
   );
 
   assert.equal(fallbackResult.isError, false);
-  assert.equal(fallbackResult._meta.toolgate.isFallback, true);
+  assert.equal(fallbackResult._meta.tollgate.isFallback, true);
   assert.equal(parseMcpPayload(fallbackResult).mode, "fallback");
   assert.equal(fallbackTrace?.fallbackUsed, true);
   assert.equal(fallbackTrace?.chargeStatus, "none");
@@ -95,7 +95,7 @@ async function runScenario() {
   );
 
   assert.equal(paidResult.isError, false);
-  assert.equal(paidResult._meta.toolgate.isFallback, false);
+  assert.equal(paidResult._meta.tollgate.isFallback, false);
   assert.equal(paidOutput.mode, "premium");
   assert.equal(transport.calls.length, 1);
   assert.equal(toNumber(balanceBeforePaid) - toNumber(balanceAfterPaid), 0.25);
@@ -131,14 +131,14 @@ async function runScenario() {
   const traces = await gate.traces.toJSON({ toolName: "firecrawl_scrape" });
 
   return {
-    integration: "firecrawl-mcp-toolgate-fake",
+    integration: "firecrawl-mcp-tollgate-fake",
     tool: "firecrawl_scrape",
     scenarios: [
       {
         name: "payment_missing",
         result: {
           success: !fallbackResult.isError,
-          isFallback: fallbackResult._meta.toolgate.isFallback,
+          isFallback: fallbackResult._meta.tollgate.isFallback,
           mode: parseMcpPayload(fallbackResult).mode,
         },
         trace: summarizeTrace(fallbackTrace),
@@ -149,7 +149,7 @@ async function runScenario() {
         balanceAfter: toNumber(balanceAfterPaid),
         result: {
           success: !paidResult.isError,
-          isFallback: paidResult._meta.toolgate.isFallback,
+          isFallback: paidResult._meta.tollgate.isFallback,
           mode: paidOutput.mode,
         },
         trace: summarizeTrace(paidTrace),

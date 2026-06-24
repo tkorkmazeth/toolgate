@@ -1,14 +1,14 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import Stripe from "stripe";
-import { DbLedger, WebhookHandler } from "@tkorkmaz/toolgate";
+import { DbLedger, WebhookHandler } from "@niceberglabs/tollgate";
 
 // ─── Cloudflare Worker env bindings ──────────────────────
 
 export interface Env {
   DB: D1Database;
-  /** Publisher API key — set via: wrangler secret put TOOLGATE_PUBLISHER_KEY */
-  TOOLGATE_PUBLISHER_KEY: string;
+  /** Publisher API key — set via: wrangler secret put TOLLGATE_PUBLISHER_KEY */
+  TOLLGATE_PUBLISHER_KEY: string;
   /** Stripe test or live secret key */
   STRIPE_SECRET_KEY?: string;
   /** Stripe webhook signing secret (whsec_...) */
@@ -48,10 +48,10 @@ app.use("*", cors({ origin: "*", allowMethods: ["GET", "POST", "OPTIONS"] }));
 // ─── Auth middleware ──────────────────────────────────────
 
 async function requireAuth(c: any, next: any) {
-  const key = c.req.header("x-toolgate-key");
-  if (!key || key !== c.env.TOOLGATE_PUBLISHER_KEY) {
+  const key = c.req.header("x-tollgate-key");
+  if (!key || key !== c.env.TOLLGATE_PUBLISHER_KEY) {
     return c.json(
-      { error: "Unauthorized. Provide X-Toolgate-Key header." },
+      { error: "Unauthorized. Provide X-Tollgate-Key header." },
       401,
     );
   }
@@ -102,10 +102,10 @@ app.post("/api/topup", requireAuth, async (c) => {
 
   const amountCents = selectTopUpAmountCents(requiredAmountUsd);
   const successUrl =
-    c.env.TOP_UP_SUCCESS_URL ?? "https://main.toolgate.pages.dev?topup=success";
+    c.env.TOP_UP_SUCCESS_URL ?? "https://main.tollgate.pages.dev?topup=success";
   const cancelUrl =
     c.env.TOP_UP_CANCEL_URL ??
-    "https://main.toolgate.pages.dev?topup=cancelled";
+    "https://main.tollgate.pages.dev?topup=cancelled";
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
@@ -115,17 +115,17 @@ app.post("/api/topup", requireAuth, async (c) => {
           currency: "usd",
           unit_amount: amountCents,
           product_data: {
-            name: "Toolgate Balance Top-Up",
-            description: `$${(amountCents / 100).toFixed(2)} added to your Toolgate balance`,
+            name: "Tollgate Balance Top-Up",
+            description: `$${(amountCents / 100).toFixed(2)} added to your Tollgate balance`,
           },
         },
         quantity: 1,
       },
     ],
     metadata: {
-      toolgate_caller_id: callerId,
-      toolgate_publisher_id: c.env.TOOLGATE_PUBLISHER_KEY,
-      toolgate_amount_cents: String(amountCents),
+      tollgate_caller_id: callerId,
+      tollgate_publisher_id: c.env.TOLLGATE_PUBLISHER_KEY,
+      tollgate_amount_cents: String(amountCents),
     },
     success_url: `${successUrl}&session_id={CHECKOUT_SESSION_ID}&caller_id=${encodeURIComponent(callerId)}`,
     cancel_url: cancelUrl,
@@ -205,7 +205,7 @@ app.get("/api/stats", requireAuth, async (c) => {
     revenue_usd: revenueRow?.total ?? 0,
     paid_calls: callsRow?.count ?? 0,
     active_callers: callersRow?.count ?? 0,
-    publisher_key: c.env.TOOLGATE_PUBLISHER_KEY.slice(0, 12) + "…",
+    publisher_key: c.env.TOLLGATE_PUBLISHER_KEY.slice(0, 12) + "…",
   });
 });
 
@@ -214,7 +214,7 @@ app.get("/api/stats", requireAuth, async (c) => {
 
 app.post("/api/keys", requireAuth, async (c) => {
   return c.json({
-    publisher_key: c.env.TOOLGATE_PUBLISHER_KEY,
+    publisher_key: c.env.TOLLGATE_PUBLISHER_KEY,
     note: "Alpha: single-publisher mode. Multi-publisher support coming in Sprint B.",
   });
 });
@@ -228,7 +228,7 @@ app.post("/api/keys", requireAuth, async (c) => {
 app.get("/pay", async (c) => {
   if (!c.env.STRIPE_SECRET_KEY) {
     return c.text(
-      "Payment not yet configured. Visit https://main.toolgate.pages.dev for setup instructions.",
+      "Payment not yet configured. Visit https://main.tollgate.pages.dev for setup instructions.",
       503,
     );
   }
@@ -238,7 +238,7 @@ app.get("/pay", async (c) => {
   const amountStr = c.req.query("amount");
 
   // Validate publisher key (constant-time comparison not needed — alpha only)
-  if (!publisher || publisher !== c.env.TOOLGATE_PUBLISHER_KEY) {
+  if (!publisher || publisher !== c.env.TOLLGATE_PUBLISHER_KEY) {
     return c.text("Invalid publisher key.", 400);
   }
   if (!caller || caller.trim().length === 0) {
@@ -257,10 +257,10 @@ app.get("/pay", async (c) => {
   });
 
   const successUrl =
-    c.env.TOP_UP_SUCCESS_URL ?? "https://main.toolgate.pages.dev?topup=success";
+    c.env.TOP_UP_SUCCESS_URL ?? "https://main.tollgate.pages.dev?topup=success";
   const cancelUrl =
     c.env.TOP_UP_CANCEL_URL ??
-    "https://main.toolgate.pages.dev?topup=cancelled";
+    "https://main.tollgate.pages.dev?topup=cancelled";
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
@@ -270,17 +270,17 @@ app.get("/pay", async (c) => {
           currency: "usd",
           unit_amount: amountCents,
           product_data: {
-            name: "Toolgate Balance Top-Up",
-            description: `$${(amountCents / 100).toFixed(2)} added to your Toolgate balance`,
+            name: "Tollgate Balance Top-Up",
+            description: `$${(amountCents / 100).toFixed(2)} added to your Tollgate balance`,
           },
         },
         quantity: 1,
       },
     ],
     metadata: {
-      toolgate_caller_id: caller,
-      toolgate_publisher_id: publisher,
-      toolgate_amount_cents: String(amountCents),
+      tollgate_caller_id: caller,
+      tollgate_publisher_id: publisher,
+      tollgate_amount_cents: String(amountCents),
     },
     success_url: `${successUrl}&session_id={CHECKOUT_SESSION_ID}&caller_id=${encodeURIComponent(caller)}`,
     cancel_url: cancelUrl,
@@ -297,7 +297,7 @@ app.get("/pay", async (c) => {
 
 app.get("/", (c) =>
   c.json({
-    service: "toolgate-api",
+    service: "tollgate-api",
     version: "0.1.0-alpha.1",
     endpoints: [
       "GET  /pay                (browser top-up redirect → Stripe Checkout)",

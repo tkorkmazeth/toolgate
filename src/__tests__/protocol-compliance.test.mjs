@@ -57,7 +57,7 @@ class MppRailAdapter {
       const requestBase64 = Buffer.from(JSON.stringify(requestPayload)).toString("base64url");
       return {
         id: `${challengeId}_${index}`,
-        realm: "toolgate",
+        realm: "tollgate",
         method: method.name,
         intent: "charge",
         request: requestBase64,
@@ -154,7 +154,7 @@ class X402RailAdapter {
 
     const resource =
       this.config.resourceUrl ??
-      `toolgate://${params.publisherKey}/${params.toolName}`;
+      `tollgate://${params.publisherKey}/${params.toolName}`;
 
     const paymentRequirement = {
       scheme: this.config.scheme ?? "exact",
@@ -166,9 +166,9 @@ class X402RailAdapter {
       asset: this.getAssetAddress(),
       maxTimeoutSeconds: timeout,
       extra: {
-        toolgate_caller_id: params.callerId,
-        toolgate_tool: params.toolName,
-        toolgate_publisher: params.publisherKey,
+        tollgate_caller_id: params.callerId,
+        tollgate_tool: params.toolName,
+        tollgate_publisher: params.publisherKey,
       },
     };
 
@@ -300,7 +300,7 @@ describe("MppRailAdapter — protocol compliance", () => {
     assert.ok(settlement.mppChallenge, "mppChallenge must be present");
     const ch = settlement.mppChallenge.challenges[0];
     assert.ok(ch.id, "challenge.id required");
-    assert.equal(ch.realm, "toolgate");
+    assert.equal(ch.realm, "tollgate");
     assert.equal(ch.method, "tempo");
     assert.equal(ch.intent, "charge");
     assert.ok(ch.request, "challenge.request (base64url) required");
@@ -491,12 +491,12 @@ describe("X402RailAdapter — protocol compliance", () => {
     assert.equal(settlement.x402PaymentRequired.accepts[0].resource, customUrl);
   });
 
-  it("default resourceUrl is toolgate://{publisherKey}/{toolName}", async () => {
+  it("default resourceUrl is tollgate://{publisherKey}/{toolName}", async () => {
     const adapter = new X402RailAdapter({ payTo: "0xABCD", network: EVM_NETWORK, facilitatorUrl: FACILITATOR });
     const settlement = await adapter.createChallenge(BASE_PARAMS);
     assert.equal(
       settlement.x402PaymentRequired.accepts[0].resource,
-      `toolgate://${BASE_PARAMS.publisherKey}/${BASE_PARAMS.toolName}`,
+      `tollgate://${BASE_PARAMS.publisherKey}/${BASE_PARAMS.toolName}`,
     );
   });
 

@@ -1,7 +1,7 @@
 import http from "node:http";
 import { pathToFileURL } from "node:url";
 import {
-  ToolGate,
+  TollGate,
   createMcpAdapter,
   MppRailAdapter,
   X402RailAdapter,
@@ -13,7 +13,7 @@ const DEMO_CALLER = "demo-agent";
 const DEMO_PUBLISHER = "tg_phase3_demo";
 
 export async function createLedgerExample() {
-  const gate = new ToolGate({
+  const gate = new TollGate({
     publisherKey: DEMO_PUBLISHER,
     paymentRails: ["stripe"],
   });
@@ -60,7 +60,7 @@ export async function createMppExample() {
     },
   });
 
-  const gate = new ToolGate({
+  const gate = new TollGate({
     publisherKey: DEMO_PUBLISHER,
     paymentRails: ["mpp"],
     railAdapters: [mppAdapter],
@@ -83,7 +83,7 @@ export async function createMppExample() {
       });
       return {
         "org.paymentauth/credential": "mpp-valid-demo",
-        toolgate: {
+        tollgate: {
           mppChallengeId: challenge.mppChallenge?.challenges[0]?.id ?? null,
           providerId: "mpp-provider-demo",
         },
@@ -114,7 +114,7 @@ export async function createX402Example() {
     maxTimeoutSeconds: 60,
   });
 
-  const gate = new ToolGate({
+  const gate = new TollGate({
     publisherKey: DEMO_PUBLISHER,
     paymentRails: ["x402"],
     railAdapters: [x402Adapter],
@@ -136,7 +136,7 @@ export async function createX402Example() {
         publisherKey: DEMO_PUBLISHER,
       });
       return {
-        toolgate: {
+        tollgate: {
           x402ActionId: challenge.actionId,
           x402Payment: {
             payer: "0xdemo",
@@ -360,7 +360,7 @@ function makePremiumPayload(kind, args) {
       papers: [
         {
           title: "Deterministic Recovery for Paid Agent Tools",
-          doi: "10.5555/toolgate.2026.001",
+          doi: "10.5555/tollgate.2026.001",
         },
       ],
     };
@@ -423,18 +423,18 @@ function normalizeResult(result) {
 
 function normalizeMeta(meta) {
   if (!meta || typeof meta !== "object") return null;
-  const toolgate =
-    meta.toolgate && typeof meta.toolgate === "object" ? meta.toolgate : null;
-  if (!toolgate) return null;
+  const tollgate =
+    meta.tollgate && typeof meta.tollgate === "object" ? meta.tollgate : null;
+  if (!tollgate) return null;
   return {
-    paid: Boolean(toolgate.paid),
-    isFallback: Boolean(toolgate.isFallback),
-    acceptedRails: Array.isArray(toolgate.acceptedRails)
-      ? toolgate.acceptedRails
+    paid: Boolean(tollgate.paid),
+    isFallback: Boolean(tollgate.isFallback),
+    acceptedRails: Array.isArray(tollgate.acceptedRails)
+      ? tollgate.acceptedRails
       : undefined,
     amount:
-      typeof toolgate.amount === "number"
-        ? roundMoney(toolgate.amount)
+      typeof tollgate.amount === "number"
+        ? roundMoney(tollgate.amount)
         : undefined,
   };
 }

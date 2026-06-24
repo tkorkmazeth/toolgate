@@ -2,7 +2,7 @@
  * Phase 2 — Idempotency Tests
  *
  * 1. InMemoryIdempotencyStore unit tests (get/set/update/delete, TTL, eviction)
- * 2. ToolGate idempotency integration (duplicate detection, policies, no double-charge)
+ * 2. TollGate idempotency integration (duplicate detection, policies, no double-charge)
  *
  * Run: node --test src/__tests__/idempotency.test.mjs
  */
@@ -109,7 +109,7 @@ class InMemoryTraceStore {
   }
 }
 
-// ─── Minimal ToolGate with idempotency ───────────────────
+// ─── Minimal TollGate with idempotency ───────────────────
 
 function hashSync(input) {
   const str = JSON.stringify(input) ?? "";
@@ -120,7 +120,7 @@ function hashSync(input) {
   return hash.toString(36);
 }
 
-class ToolGate {
+class TollGate {
   constructor(config) {
     this.ledger = config.ledger ?? new InMemoryLedger();
     this.idempotencyStore =
@@ -417,7 +417,7 @@ describe("InMemoryIdempotencyStore", () => {
   });
 });
 
-// ─── Tests: ToolGate idempotency integration ─────────────
+// ─── Tests: TollGate idempotency integration ─────────────
 
 describe("Idempotency", () => {
   let ledger, gate;
@@ -425,7 +425,7 @@ describe("Idempotency", () => {
 
   beforeEach(() => {
     ledger = new InMemoryLedger();
-    gate = new ToolGate({ ledger, publisherKey: "tg_test" });
+    gate = new TollGate({ ledger, publisherKey: "tg_test" });
   });
 
   it("same idempotency key returns same result, no double charge", async () => {
@@ -544,7 +544,7 @@ describe("Idempotency", () => {
 
   it("in_progress duplicate returns error message", async () => {
     const idempotencyStore = new InMemoryIdempotencyStore();
-    gate = new ToolGate({ ledger, idempotencyStore, publisherKey: "tg_test" });
+    gate = new TollGate({ ledger, idempotencyStore, publisherKey: "tg_test" });
 
     // Pre-insert an in_progress record
     const now = Date.now();

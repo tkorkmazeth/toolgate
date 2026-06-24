@@ -11,9 +11,9 @@ A typical x402-paid MCP flow is:
 
 That pattern is useful because the payment boundary is explicit and native to x402.
 
-## What Toolgate Adds Above x402
+## What Tollgate Adds Above x402
 
-Toolgate does not replace that challenge flow. It wraps the paid action and adds recovery semantics around it:
+Tollgate does not replace that challenge flow. It wraps the paid action and adds recovery semantics around it:
 
 - fallback response instead of only a hard stop
 - idempotent replay so the same paid retry does not double charge
@@ -27,7 +27,7 @@ Hard x402 behavior:
 - best when you want a strict paywall and a canonical payment challenge
 - weak on degraded responses and retry ergonomics by itself
 
-Toolgate over x402:
+Tollgate over x402:
 
 - still preserves the x402 payment proof flow
 - adds operational recovery for agents and MCP clients
@@ -47,4 +47,4 @@ That scenario already shows the important distinction:
 - settlement can still be uncertain
 - the trace should say so
 
-That is the point of the integration layer. Toolgate does not replace x402. It adds fallback, idempotency, traceability, and recovery above it.
+That is the point of the integration layer. Tollgate does not replace x402. It adds fallback, idempotency, traceability, and recovery above it.

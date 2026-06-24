@@ -1,5 +1,5 @@
 {
-  "name": "toolgate-advanced-server",
+  "name": "tollgate-advanced-server",
   "version": "1.0.0",
   "description": "Full-featured paid MCP server — dynamic pricing, tiers, fallback, metering, hooks",
   "type": "module",
@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "@tkorkmaz/toolgate": "^0.1.0-alpha.1"
+    "@niceberglabs/tollgate": "^0.1.0-alpha.1"
   },
   "devDependencies": {
     "ts-node": "^10.9.0",

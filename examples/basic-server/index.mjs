@@ -1,5 +1,5 @@
 /**
- * Toolgate — Basic MCP Server Example
+ * Tollgate — Basic MCP Server Example
  *
  * A minimal paid MCP server showcasing:
  *   - Static per-call pricing ($0.05)
@@ -28,17 +28,17 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { ToolGate, createMcpAdapter, usd, toNumber } from "@tkorkmaz/toolgate";
+import { TollGate, createMcpAdapter, usd, toNumber } from "@niceberglabs/tollgate";
 
-// ─── Toolgate setup ──────────────────────────────────────────
+// ─── Tollgate setup ──────────────────────────────────────────
 
-const gate = new ToolGate({
-  publisherKey: process.env.TOOLGATE_PUBLISHER_KEY ?? "tg_test",
+const gate = new TollGate({
+  publisherKey: process.env.TOLLGATE_PUBLISHER_KEY ?? "tg_test",
 });
 
 const mcp = createMcpAdapter(gate, {
   // Extract caller identity from the MCP session ID.
-  // In production this maps to a real Toolgate account.
+  // In production this maps to a real Tollgate account.
   getCallerId: (_args, extra) => extra?.sessionId ?? "demo-user",
 });
 
@@ -60,7 +60,7 @@ mcp.paidTool("premium_search", {
     required: ["query"],
   },
 
-  price: 0.05, // $0.05 per call (static)
+  price: usd("0.05"), // $0.05 per call (static)
 
   handler: async ({ query }) => {
     // Replace with your real search implementation.
@@ -84,7 +84,7 @@ mcp.paidTool("premium_search", {
 // ─── Free utility tools ───────────────────────────────────────
 
 const server = new McpServer({
-  name: "toolgate-basic-example",
+  name: "tollgate-basic-example",
   version: "1.0.0",
 });
 
@@ -151,5 +151,5 @@ const transport = new StdioServerTransport();
 await server.connect(transport);
 
 process.stderr.write(
-  "[toolgate-basic] Server started. Pre-loaded $1.00 demo balance.\n",
+  "[tollgate-basic] Server started. Pre-loaded $1.00 demo balance.\n",
 );

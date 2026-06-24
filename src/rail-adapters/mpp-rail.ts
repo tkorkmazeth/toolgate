@@ -44,7 +44,7 @@ export class MppRailAdapter implements RailAdapter {
       ).toString("base64url");
       return {
         id: `${challengeId}_${index}`,
-        realm: "toolgate",
+        realm: "tollgate",
         method: method.name,
         intent: "charge" as const,
         request: requestBase64,
@@ -80,7 +80,7 @@ export class MppRailAdapter implements RailAdapter {
         }) => (req: Request) => Promise<Response>;
       };
 
-      const verifyRequest = new Request("https://toolgate.internal/verify", {
+      const verifyRequest = new Request("https://tollgate.internal/verify", {
         headers: {
           Authorization: `Payment ${proof.mppPaymentHeader}`,
         },
@@ -110,7 +110,7 @@ export class MppRailAdapter implements RailAdapter {
     _context?: VerificationContext,
   ): Promise<SettlementResult | null> {
     // MPP settlement happens via webhook or mppx internally.
-    // No explicit settle call needed from Toolgate.
+    // No explicit settle call needed from Tollgate.
     return null;
   }
 

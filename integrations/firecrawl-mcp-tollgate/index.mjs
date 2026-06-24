@@ -179,7 +179,7 @@ export function createFirecrawlFallbackResult(input) {
   const normalizedUrl = normalizeFirecrawlUrl(input.url);
   return {
     mode: "fallback",
-    provider: "toolgate",
+    provider: "tollgate",
     tool: "firecrawl_scrape",
     requestId: input.requestId ?? null,
     url: normalizedUrl,

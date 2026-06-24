@@ -20,7 +20,7 @@ const transport = new StdioClientTransport({
 
 const client = new Client(
   {
-    name: "toolgate-firecrawl-mcp-e2e-client",
+    name: "tollgate-firecrawl-mcp-e2e-client",
     version: "1.0.0",
   },
   { capabilities: {} },

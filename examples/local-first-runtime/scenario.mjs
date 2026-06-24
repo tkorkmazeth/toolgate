@@ -1,12 +1,12 @@
 /**
- * Toolgate — Local-First Runtime Example
+ * Tollgate — Local-First Runtime Example
  *
  * Runs entirely in-memory. No Stripe, x402, MPP, wallets, webhooks,
  * hosted APIs, or environment variables required.
  *
  *   npm run example:local
  *
- * It demonstrates the six edge cases Toolgate exists to handle:
+ * It demonstrates the six edge cases Tollgate exists to handle:
  *   A. Fallback when the caller has no balance (no charge).
  *   B. Block → payment_required (402) when the caller has no balance.
  *   C. Paid execution after a local ledger credit.
@@ -15,14 +15,14 @@
  *   F. Execution trace inspection.
  */
 
-import { ToolGate, InMemoryLedger, usd } from "../../dist/index.js";
+import { TollGate, InMemoryLedger, usd } from "../../dist/index.js";
 
 const CALLER = "demo-agent";
 
 // A shared ledger so every flow sees the same balance.
 const ledger = new InMemoryLedger();
 
-const gate = new ToolGate({
+const gate = new TollGate({
   publisherKey: "tg_local_demo",
   paymentRails: ["stripe"], // illustrative only — never contacted in this demo
   topUpBaseUrl: "https://your-topup-endpoint.example/pay",

@@ -1,5 +1,5 @@
 /**
- * MCP Protocol Types (subset needed for Toolgate adapter)
+ * MCP Protocol Types (subset needed for Tollgate adapter)
  *
  * These mirror @modelcontextprotocol/sdk types so the adapter
  * works standalone without the npm dependency in dev.
@@ -25,7 +25,7 @@ export type McpContent = McpTextContent | McpImageContent;
 export interface McpToolResult {
   content: McpContent[];
   isError?: boolean;
-  /** Toolgate extension: structured metadata for agents */
+  /** Tollgate extension: structured metadata for agents */
   _meta?: Record<string, unknown>;
 }
 

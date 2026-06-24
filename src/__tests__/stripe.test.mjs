@@ -54,7 +54,7 @@ class StripeAdapter {
   constructor(config, mockStripe) {
     this.config = {
       platformFeePercent: 0.1,
-      topUpBaseUrl: "https://pay.toolgate.dev",
+      topUpBaseUrl: "https://pay.tollgate.dev",
       ...config,
     };
     this._stripe = mockStripe; // inject mock instead of real Stripe
@@ -78,18 +78,18 @@ class StripeAdapter {
             currency,
             unit_amount: amountCents,
             product_data: {
-              name: "Toolgate Balance Top-Up",
-              description: `$${(amountCents / 100).toFixed(2)} added to your Toolgate balance`,
+              name: "Tollgate Balance Top-Up",
+              description: `$${(amountCents / 100).toFixed(2)} added to your Tollgate balance`,
             },
           },
           quantity: 1,
         },
       ],
       metadata: {
-        toolgate_caller_id: callerId,
-        toolgate_publisher_id: publisherId,
-        toolgate_amount_cents: String(amountCents),
-        toolgate_currency: currency,
+        tollgate_caller_id: callerId,
+        tollgate_publisher_id: publisherId,
+        tollgate_amount_cents: String(amountCents),
+        tollgate_currency: currency,
       },
       success_url: `${baseUrl}/topup/success?session_id={CHECKOUT_SESSION_ID}&caller=${encodeURIComponent(callerId)}`,
       cancel_url: `${baseUrl}/topup/cancel?caller=${encodeURIComponent(callerId)}`,
@@ -146,9 +146,9 @@ class StripeAdapter {
       currency,
       destination: connectedAccountId,
       metadata: {
-        toolgate_gross_cents: String(grossAmountCents),
-        toolgate_platform_fee_cents: String(platformFeeCents),
-        toolgate_fee_percent: String(this.config.platformFeePercent),
+        tollgate_gross_cents: String(grossAmountCents),
+        tollgate_platform_fee_cents: String(platformFeeCents),
+        tollgate_fee_percent: String(this.config.platformFeePercent),
       },
     });
 
@@ -277,10 +277,10 @@ describe("StripeAdapter.createTopUpSession", () => {
     assert.ok(result.url.includes("cs_test_mock"));
 
     const call = stripe._calls.checkout[0];
-    assert.equal(call.metadata.toolgate_caller_id, "user-1");
-    assert.equal(call.metadata.toolgate_publisher_id, "tg_pub_abc");
-    assert.equal(call.metadata.toolgate_amount_cents, "500");
-    assert.equal(call.metadata.toolgate_currency, "usd");
+    assert.equal(call.metadata.tollgate_caller_id, "user-1");
+    assert.equal(call.metadata.tollgate_publisher_id, "tg_pub_abc");
+    assert.equal(call.metadata.tollgate_amount_cents, "500");
+    assert.equal(call.metadata.tollgate_currency, "usd");
   });
 
   it("embeds callerId in success URL", async () => {

@@ -5,7 +5,7 @@ Use a paid search / scraping / enrichment tool as the first public demo.
 The clearest story is a Firecrawl-style extraction wrapper:
 
 1. Caller asks for a premium extraction.
-2. Caller has no balance, so Toolgate serves a fallback summary instead of failing hard.
+2. Caller has no balance, so Tollgate serves a fallback summary instead of failing hard.
 3. Caller receives `payment_required` when the tool is configured to block.
 4. Caller is credited locally for the demo.
 5. Premium extraction runs and returns a prepaid receipt.

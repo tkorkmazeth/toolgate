@@ -1,7 +1,7 @@
 /**
  * Local-First Runtime Behavior Tests
  *
- * Exercises the real built ToolGate (no inline reimplementation) against the
+ * Exercises the real built TollGate (no inline reimplementation) against the
  * six edge cases the local example demonstrates:
  *   - fallback without balance does not charge
  *   - onPaymentFailed: "block" returns payment_required
@@ -18,12 +18,12 @@
 import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { ToolGate, InMemoryLedger, usd } from "../../dist/index.js";
+import { TollGate, InMemoryLedger, usd } from "../../dist/index.js";
 
 const CALLER = "demo-agent";
 
 function makeGate(ledger) {
-  return new ToolGate({
+  return new TollGate({
     publisherKey: "tg_local_test",
     paymentRails: ["stripe"],
     topUpBaseUrl: "https://your-topup-endpoint.example/pay",

@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve Toolgate. This project is in developer preview, so small,
+Thanks for helping improve Tollgate. This project is in developer preview, so small,
 well-scoped changes are easiest to review.
 
 ## Local setup

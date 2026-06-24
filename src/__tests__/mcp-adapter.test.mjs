@@ -1,7 +1,7 @@
 /**
  * MCP Adapter — Integration Tests
  *
- * Tests the full flow: ToolGate SDK → MCP Adapter → MCP-compatible responses
+ * Tests the full flow: TollGate SDK → MCP Adapter → MCP-compatible responses
  *
  * Scenarios:
  * 1. Paid tool with balance → success + receipt in _meta
@@ -54,8 +54,8 @@ class InMemoryLedger {
   }
 }
 
-// ToolGate (minimal inline — same core logic as SDK)
-class ToolGate {
+// TollGate (minimal inline — same core logic as SDK)
+class TollGate {
   constructor(config) {
     this.config = {
       publisherKey: config.publisherKey,
@@ -162,7 +162,7 @@ class ToolGate {
         status: 402, error: "payment_required", tool: tool.name,
         amount: req, currency: this.config.defaultCurrency,
         acceptedRails: this.config.paymentRails,
-        topUpUrl: `https://pay.toolgate.dev/topup?publisher=${this.config.publisherKey}&amount=${Math.ceil(req * 100)}`,
+        topUpUrl: `https://pay.tollgate.dev/topup?publisher=${this.config.publisherKey}&amount=${Math.ceil(req * 100)}`,
       },
     };
   }
@@ -222,7 +222,7 @@ class McpAdapter {
       const mcpResult = { content, isError: false };
       if (this.config.includeMeta) {
         mcpResult._meta = {
-          toolgate: {
+          tollgate: {
             paid: !!result.receipt, isFallback: result.isFallback ?? false,
             receipt: result.receipt ?? null,
             metrics: result.metrics ? { durationMs: result.metrics.durationMs } : null,
@@ -240,11 +240,11 @@ class McpAdapter {
       return {
         content: [{
           type: "text",
-          text: `⚠️ Payment required to use "${toolName}".\n\nAmount: $${pr.amount.toFixed(4)} ${pr.currency.toUpperCase()}\nAccepted payment methods: ${pr.acceptedRails.join(", ")}\n${pr.topUpUrl ? `\nTop up balance: ${pr.topUpUrl}` : ""}\n\nTo continue, add funds to your Toolgate balance and retry.`,
+          text: `⚠️ Payment required to use "${toolName}".\n\nAmount: $${pr.amount.toFixed(4)} ${pr.currency.toUpperCase()}\nAccepted payment methods: ${pr.acceptedRails.join(", ")}\n${pr.topUpUrl ? `\nTop up balance: ${pr.topUpUrl}` : ""}\n\nTo continue, add funds to your Tollgate balance and retry.`,
         }],
         isError: true,
         _meta: this.config.includeMeta ? {
-          toolgate: { paymentRequired: true, amount: pr.amount, currency: pr.currency, acceptedRails: pr.acceptedRails, topUpUrl: pr.topUpUrl ?? null },
+          tollgate: { paymentRequired: true, amount: pr.amount, currency: pr.currency, acceptedRails: pr.acceptedRails, topUpUrl: pr.topUpUrl ?? null },
         } : undefined,
       };
     }
@@ -287,7 +287,7 @@ describe("MCP Adapter", () => {
 
   beforeEach(() => {
     ledger = new InMemoryLedger();
-    gate = new ToolGate({ publisherKey: "tg_test", ledger });
+    gate = new TollGate({ publisherKey: "tg_test", ledger });
     mcp = new McpAdapter(gate);
   });
 
@@ -319,12 +319,12 @@ describe("MCP Adapter", () => {
       const output = JSON.parse(result.content[0].text);
       assert.deepEqual(output.results, ["Found: AI payments"]);
 
-      // Check Toolgate metadata
-      assert.ok(result._meta.toolgate);
-      assert.equal(result._meta.toolgate.paid, true);
-      assert.equal(result._meta.toolgate.isFallback, false);
-      assert.equal(result._meta.toolgate.receipt.amount, 0.05);
-      assert.equal(result._meta.toolgate.receipt.rail, "prepaid");
+      // Check Tollgate metadata
+      assert.ok(result._meta.tollgate);
+      assert.equal(result._meta.tollgate.paid, true);
+      assert.equal(result._meta.tollgate.isFallback, false);
+      assert.equal(result._meta.tollgate.receipt.amount, 0.05);
+      assert.equal(result._meta.tollgate.receipt.rail, "prepaid");
     });
   });
 
@@ -344,12 +344,12 @@ describe("MCP Adapter", () => {
       assert.equal(result.isError, true);
       assert.ok(result.content[0].text.includes("Payment required"));
       assert.ok(result.content[0].text.includes("$0.2500"));
-      assert.ok(result.content[0].text.includes("toolgate.dev/topup"));
+      assert.ok(result.content[0].text.includes("tollgate.dev/topup"));
 
       // Structured metadata for smart agents
-      assert.equal(result._meta.toolgate.paymentRequired, true);
-      assert.equal(result._meta.toolgate.amount, 0.25);
-      assert.deepEqual(result._meta.toolgate.acceptedRails, ["stripe"]);
+      assert.equal(result._meta.tollgate.paymentRequired, true);
+      assert.equal(result._meta.tollgate.amount, 0.25);
+      assert.deepEqual(result._meta.tollgate.acceptedRails, ["stripe"]);
     });
   });
 
@@ -368,8 +368,8 @@ describe("MCP Adapter", () => {
       const result = await tool.handler({ topic: "quantum" }, { sessionId: "no-balance" });
 
       assert.equal(result.isError, false);
-      assert.equal(result._meta.toolgate.isFallback, true);
-      assert.equal(result._meta.toolgate.paid, false);
+      assert.equal(result._meta.tollgate.isFallback, true);
+      assert.equal(result._meta.tollgate.paid, false);
 
       // Output is the fallback
       const output = JSON.parse(result.content[0].text);
@@ -400,18 +400,18 @@ describe("MCP Adapter", () => {
       // Call 1: free
       const r1 = await tool.handler({ id: 1 }, { sessionId: "user-1" });
       assert.equal(r1.isError, false);
-      assert.equal(r1._meta.toolgate.paid, false); // no receipt = free
+      assert.equal(r1._meta.tollgate.paid, false); // no receipt = free
 
       // Call 2: free
       const r2 = await tool.handler({ id: 2 }, { sessionId: "user-1" });
       assert.equal(r2.isError, false);
-      assert.equal(r2._meta.toolgate.paid, false);
+      assert.equal(r2._meta.tollgate.paid, false);
 
       // Call 3: premium (should charge)
       const r3 = await tool.handler({ id: 3 }, { sessionId: "user-1" });
       assert.equal(r3.isError, false);
-      assert.equal(r3._meta.toolgate.paid, true);
-      assert.equal(r3._meta.toolgate.receipt.amount, 0.03);
+      assert.equal(r3._meta.tollgate.paid, true);
+      assert.equal(r3._meta.tollgate.receipt.amount, 0.03);
 
       assert.equal(await ledger.getBalance("user-1"), 0.97);
     });
@@ -432,12 +432,12 @@ describe("MCP Adapter", () => {
 
       // Short text: 1 cent
       const r1 = await tool.handler({ text: "Hello", targetLang: "tr" }, { sessionId: "user-1" });
-      assert.equal(r1._meta.toolgate.receipt.amount, 0.01);
+      assert.equal(r1._meta.tollgate.receipt.amount, 0.01);
 
       // Longer text: 3 cents (250 chars → ceil(250/100) = 3)
       const longText = "x".repeat(250);
       const r2 = await tool.handler({ text: longText, targetLang: "de" }, { sessionId: "user-1" });
-      assert.equal(r2._meta.toolgate.receipt.amount, 0.03);
+      assert.equal(r2._meta.tollgate.receipt.amount, 0.03);
     });
   });
 
@@ -532,8 +532,8 @@ describe("MCP Adapter", () => {
       const result = await tool.handler({ data: "test" }, { sessionId: "user-1" });
 
       assert.equal(result.isError, false);
-      assert.ok(result._meta.toolgate.paid);
-      assert.ok(result._meta.toolgate.receipt.amount > 0.01); // ~30ms × 0.0005
+      assert.ok(result._meta.tollgate.paid);
+      assert.ok(result._meta.tollgate.receipt.amount > 0.01); // ~30ms × 0.0005
     });
   });
 

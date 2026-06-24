@@ -1,5 +1,5 @@
 /**
- * Toolgate SDK — Integration Tests
+ * Tollgate SDK — Integration Tests
  *
  * Tests all core flows:
  * 1. Prepaid balance → tool executes → balance deducted
@@ -83,8 +83,8 @@ function currentPeriod(period) {
   return d.toISOString().slice(0, 10);
 }
 
-// === ToolGate ===
-class ToolGate {
+// === TollGate ===
+class TollGate {
   constructor(config) {
     this.config = {
       publisherKey: config.publisherKey,
@@ -280,7 +280,7 @@ class ToolGate {
         amount: requiredAmount,
         currency: this.config.defaultCurrency,
         acceptedRails: this.config.paymentRails,
-        topUpUrl: `https://pay.toolgate.dev/topup?publisher=${this.config.publisherKey}&amount=${Math.ceil(requiredAmount * 100)}`,
+        topUpUrl: `https://pay.tollgate.dev/topup?publisher=${this.config.publisherKey}&amount=${Math.ceil(requiredAmount * 100)}`,
       },
     };
   }
@@ -296,13 +296,13 @@ async function resolvePrice(spec, input) {
 // TESTS
 // ═══════════════════════════════════════════════════════════
 
-describe("Toolgate SDK", () => {
+describe("Tollgate SDK", () => {
   let gate;
   let ledger;
 
   beforeEach(() => {
     ledger = new InMemoryLedger();
-    gate = new ToolGate({
+    gate = new TollGate({
       publisherKey: "tg_test_pub",
       ledger,
     });
@@ -383,7 +383,7 @@ describe("Toolgate SDK", () => {
       assert.equal(result.paymentRequired.status, 402);
       assert.equal(result.paymentRequired.error, "payment_required");
       assert.equal(result.paymentRequired.amount, 0.1);
-      assert.ok(result.paymentRequired.topUpUrl.includes("toolgate.dev"));
+      assert.ok(result.paymentRequired.topUpUrl.includes("tollgate.dev"));
       assert.deepEqual(result.paymentRequired.acceptedRails, ["stripe"]);
     });
 
@@ -721,7 +721,7 @@ describe("Toolgate SDK", () => {
     it("fires onCall and onPayment hooks", async () => {
       const events = [];
 
-      const gateWithHooks = new ToolGate({
+      const gateWithHooks = new TollGate({
         publisherKey: "test",
         ledger,
         hooks: {

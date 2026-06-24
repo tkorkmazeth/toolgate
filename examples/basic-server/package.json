@@ -1,7 +1,7 @@
 {
-  "name": "toolgate-basic-server",
+  "name": "tollgate-basic-server",
   "version": "1.0.0",
-  "description": "Minimal paid MCP server using Toolgate",
+  "description": "Minimal paid MCP server using Tollgate",
   "type": "module",
   "scripts": {
     "start": "node --loader ts-node/esm index.ts",
@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "@tkorkmaz/toolgate": "^0.1.0-alpha.1"
+    "@niceberglabs/tollgate": "^0.1.0-alpha.1"
   },
   "devDependencies": {
     "ts-node": "^10.9.0",

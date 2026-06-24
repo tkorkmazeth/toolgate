@@ -1,7 +1,7 @@
 /**
- * Toolgate — Advanced MCP Server Example
+ * Tollgate — Advanced MCP Server Example
  *
- * Showcases all Toolgate features:
+ * Showcases all Tollgate features:
  *   1. Static pricing          — premium_search ($0.05/call + fallback)
  *   2. Dynamic pricing         — smart_translate ($0.01/100 chars)
  *   3. Free tier + premium     — data_lookup (10 free/day, then $0.03)
@@ -28,16 +28,16 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { ToolGate, createMcpAdapter, usd, toNumber } from "@tkorkmaz/toolgate";
+import { TollGate, createMcpAdapter, usd, toNumber } from "@niceberglabs/tollgate";
 
 // ─── Observability ───────────────────────────────────────────
 
 const stats = { calls: 0, revenue: 0, errors: 0 };
 
-// ─── Toolgate setup with global hooks ────────────────────────
+// ─── Tollgate setup with global hooks ────────────────────────
 
-const gate = new ToolGate({
-  publisherKey: process.env.TOOLGATE_PUBLISHER_KEY ?? "tg_test",
+const gate = new TollGate({
+  publisherKey: process.env.TOLLGATE_PUBLISHER_KEY ?? "tg_test",
 
   hooks: {
     onCall: (tool, callerId) => {
@@ -59,7 +59,7 @@ const gate = new ToolGate({
 
 const mcp = createMcpAdapter(gate, {
   getCallerId: (_args, extra) => extra?.sessionId ?? "demo-user",
-  includeMeta: true, // attach _meta.toolgate to every response
+  includeMeta: true, // attach _meta.tollgate to every response
 });
 
 // Pre-load $2.00 demo balance
@@ -84,7 +84,7 @@ mcp.paidTool("premium_search", {
     },
     required: ["query"],
   },
-  price: 0.05,
+  price: usd("0.05"),
   onPaymentFailed: "fallback",
   handler: async ({ query, limit = 5 }) => ({
     results: Array.from(
@@ -142,7 +142,7 @@ mcp.paidTool("data_lookup", {
 
   tiers: {
     free: { limit: 10, period: "day" },
-    premium: { price: 0.03 },
+    premium: { price: usd("0.03") },
   },
 
   handler: async ({ id }) => ({
@@ -198,7 +198,7 @@ mcp.paidTool("audited_action", {
     },
     required: ["action"],
   },
-  price: 0.1,
+  price: usd("0.10"),
 
   beforeExecute: async (_input, ctx) => {
     // Require a minimum balance buffer before executing
@@ -253,7 +253,7 @@ mcp.paidTool("audited_action", {
 // ─── Free utility tools ───────────────────────────────────────
 
 const server = new McpServer({
-  name: "toolgate-advanced-example",
+  name: "tollgate-advanced-example",
   version: "1.0.0",
 });
 
@@ -318,6 +318,6 @@ const transport = new StdioServerTransport();
 await server.connect(transport);
 
 process.stderr.write(
-  `[toolgate-advanced] Server started. Tools: premium_search, smart_translate, ` +
+  `[tollgate-advanced] Server started. Tools: premium_search, smart_translate, ` +
     `data_lookup, heavy_compute, audited_action. Balance: $2.00 pre-loaded.\n`,
 );

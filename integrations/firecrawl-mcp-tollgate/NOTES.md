@@ -4,7 +4,7 @@
 
 Target tool: `firecrawl_scrape`
 
-Goal of the attempt: wrap one real Firecrawl MCP tool with `paidAction` and prove the recovery contract without changing the Toolgate SDK core.
+Goal of the attempt: wrap one real Firecrawl MCP tool with `paidAction` and prove the recovery contract without changing the Tollgate SDK core.
 
 ## Lines Of Code Changed
 
@@ -15,8 +15,8 @@ Goal of the attempt: wrap one real Firecrawl MCP tool with `paidAction` and prov
 
 ## What Changed
 
-- Added `integrations/firecrawl-mcp-toolgate/index.mjs` as a small wrapper around the Firecrawl scrape contract
-- Added `integrations/firecrawl-mcp-toolgate/scenario.mjs` to prove:
+- Added `integrations/firecrawl-mcp-tollgate/index.mjs` as a small wrapper around the Firecrawl scrape contract
+- Added `integrations/firecrawl-mcp-tollgate/scenario.mjs` to prove:
   - payment available -> full result
   - payment missing -> fallback result
   - duplicate requestId plus URL -> replay previous result with no double charge
@@ -25,7 +25,7 @@ Goal of the attempt: wrap one real Firecrawl MCP tool with `paidAction` and prov
 
 ## Where The Idempotency Key Came From
 
-Firecrawl's scrape tool exposes a URL, but not an app-level idempotency key that Toolgate can safely reuse.
+Firecrawl's scrape tool exposes a URL, but not an app-level idempotency key that Tollgate can safely reuse.
 
 The wrapper therefore sourced idempotency from:
 
@@ -66,7 +66,7 @@ That keeps the MCP contract stable while making the degraded response explicit.
 
 Mostly yes.
 
-`paidAction` was the right abstraction for this integration because the MCP tool wrapper is really a paid action around an external server call, not a new Toolgate-native tool type.
+`paidAction` was the right abstraction for this integration because the MCP tool wrapper is really a paid action around an external server call, not a new Tollgate-native tool type.
 
 The parts that felt natural:
 
@@ -83,7 +83,7 @@ The parts that still need integration glue rather than SDK changes:
 
 ## Real Friction Points
 
-1. Firecrawl does not hand Toolgate a stable idempotency token. The integration had to introduce `requestId` and compose it with a normalized URL.
+1. Firecrawl does not hand Tollgate a stable idempotency token. The integration had to introduce `requestId` and compose it with a normalized URL.
 2. URL normalization matters. The same page can arrive with reordered query params or an irrelevant fragment, which would otherwise create false misses in duplicate detection.
 3. A live Firecrawl MCP deployment sits behind stdio or HTTP transport plus API-key configuration. That means deterministic repo-local validation needed a transport seam instead of spawning the server in-process.
 4. Firecrawl returns premium results, but it does not define a degraded response contract. The wrapper had to invent the fallback payload shape.
@@ -92,4 +92,4 @@ The parts that still need integration glue rather than SDK changes:
 
 - Assumption: the downstream MCP tool would already expose a safe idempotency handle. It did not.
 - Assumption: URL alone was enough for duplicate protection. It was not; `requestId` is needed to distinguish intentional repeated scrapes from retries.
-- Assumption: a "real integration attempt" required SDK changes. It did not. The existing Toolgate surface was enough for the first pass.
+- Assumption: a "real integration attempt" required SDK changes. It did not. The existing Tollgate surface was enough for the first pass.

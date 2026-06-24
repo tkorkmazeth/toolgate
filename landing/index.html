@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Toolgate — Reliable paid MCP/tool calls</title>
+  <title>Tollgate — Reliable paid MCP/tool calls</title>
   <meta name="description" content="Open-source runtime for reliable paid or quota-limited MCP/tool calls. Fallback, idempotent retries, metering, recovery, and execution traces.">
-  <meta property="og:title" content="Toolgate — Reliable paid MCP/tool calls">
+  <meta property="og:title" content="Tollgate — Reliable paid MCP/tool calls">
   <meta property="og:description" content="Fallback, idempotent retries, metering, recovery, and traces for paid or quota-limited agent tools.">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
@@ -67,19 +67,6 @@
       align-items: center;
       padding: 84px 0 96px;
     }
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 20px;
-      padding: 5px 10px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      color: var(--muted);
-      font-size: 13px;
-      background: rgba(18, 22, 28, 0.74);
-    }
-    .dot { width: 7px; height: 7px; border-radius: 999px; background: var(--accent); }
     h1 {
       margin: 0 0 18px;
       max-width: 760px;
@@ -201,32 +188,31 @@
 </head>
 <body>
   <header class="wrap nav">
-    <a class="brand" href="#top" aria-label="Toolgate home">
+    <a class="brand" href="#top" aria-label="Tollgate home">
       <span class="mark">TG</span>
-      <span>Toolgate</span>
+      <span>Tollgate</span>
     </a>
     <nav class="links" aria-label="Primary navigation">
       <a href="#features">Features</a>
       <a href="#usage">Usage</a>
       <a href="#status">Status</a>
-      <a href="https://github.com/tkorkmazeth/toolgate">GitHub</a>
-      <a href="https://www.npmjs.com/package/@tkorkmaz/toolgate">npm</a>
+      <a href="https://github.com/niceberginc/tollgate">GitHub</a>
+      <a href="https://www.npmjs.com/package/@niceberglabs/tollgate">npm</a>
     </nav>
   </header>
 
   <main id="top">
     <div class="wrap hero">
       <div>
-        <div class="eyebrow"><span class="dot"></span> Developer preview · v0.3.0-beta.0</div>
         <h1>Reliable paid or quota-limited tool calls.</h1>
-        <p class="lede">Toolgate is an open-source runtime for MCP and agent tools. It handles fallback, idempotent retries, metering, recovery, and execution traces so retries and edge cases do not double-charge or hard-fail.</p>
+        <p class="lede">Tollgate is an open-source runtime for MCP and agent tools. It handles fallback, idempotent retries, metering, recovery, and execution traces so retries and edge cases do not double-charge or hard-fail.</p>
         <div class="actions">
-          <a class="btn primary" href="https://github.com/tkorkmazeth/toolgate">View on GitHub</a>
-          <a class="btn" href="https://www.npmjs.com/package/@tkorkmaz/toolgate">npm package</a>
+          <a class="btn primary" href="https://github.com/niceberginc/tollgate">View on GitHub</a>
+          <a class="btn" href="https://www.npmjs.com/package/@niceberglabs/tollgate">npm package</a>
         </div>
         <button class="install" type="button" onclick="copyInstall(this)">
           <span>$</span>
-          <code>npm install @tkorkmaz/toolgate</code>
+          <code>npm install @niceberglabs/tollgate</code>
           <span class="copy">copy</span>
         </button>
       </div>
@@ -262,7 +248,7 @@
         <h2>Run the repo demo</h2>
         <p class="section-lede">Clone the repository to run the local demo. The first-run path uses the in-memory ledger and does not require Stripe, x402, MPP, wallets, webhooks, hosted APIs, or environment variables.</p>
         <div class="panel code-card">
-          <pre><code>git clone https://github.com/tkorkmazeth/toolgate.git&#10;cd toolgate&#10;npm install&#10;npm run build&#10;npm run example:local</code></pre>
+          <pre><code>git clone https://github.com/niceberginc/tollgate.git&#10;cd tollgate&#10;npm install&#10;npm run build&#10;npm run example:local</code></pre>
         </div>
       </div>
     </section>
@@ -270,7 +256,7 @@
     <section id="features">
       <div class="wrap">
         <h2>Runtime behavior</h2>
-        <p class="section-lede">Toolgate wraps the call boundary where payment, quota, retries, execution, and recovery meet.</p>
+        <p class="section-lede">Tollgate wraps the call boundary where payment, quota, retries, execution, and recovery meet.</p>
         <div class="grid">
           <article class="card"><h3>Fallback</h3><p>Return a degraded result instead of forcing every unpaid call into a hard failure.</p></article>
           <article class="card"><h3>Idempotency</h3><p>Replay completed results for duplicate request keys without charging twice.</p></article>
@@ -286,13 +272,13 @@
       <div class="wrap split">
         <div>
           <h2>Minimal usage</h2>
-          <p class="section-lede">Start with `ToolGate`, `InMemoryLedger`, and `usd()`; add rail adapters later.</p>
+          <p class="section-lede">Start with `TollGate`, `InMemoryLedger`, and `usd()`; add rail adapters later.</p>
         </div>
         <div class="panel code-card">
-          <pre><code>import { ToolGate, InMemoryLedger, usd } from "@tkorkmaz/toolgate";
+          <pre><code>import { TollGate, InMemoryLedger, usd } from "@niceberglabs/tollgate";
 
 const ledger = new InMemoryLedger();
-const gate = new ToolGate({ publisherKey: "tg_local_demo", ledger });
+const gate = new TollGate({ publisherKey: "tg_local_demo", ledger });
 
 const search = gate.paidTool({
   name: "premium_search",
@@ -318,13 +304,13 @@ console.log(result.receipt);</code></pre>
       <div class="wrap split">
         <div>
           <h2>MCP wrapper</h2>
-          <p class="section-lede">Use `createMcpAdapter()` to expose a paid tool through an MCP server. `_meta.toolgate` carries receipt, fallback, and payment-required metadata.</p>
+          <p class="section-lede">Use `createMcpAdapter()` to expose a paid tool through an MCP server. `_meta.tollgate` carries receipt, fallback, and payment-required metadata.</p>
           <p class="muted"><a href="#usage">See minimal usage →</a></p>
         </div>
         <div class="panel code-card">
-          <pre><code>import { ToolGate, createMcpAdapter, usd } from "@tkorkmaz/toolgate";
+          <pre><code>import { TollGate, createMcpAdapter, usd } from "@niceberglabs/tollgate";
 
-const gate = new ToolGate({ publisherKey: "tg_local_demo" });
+const gate = new TollGate({ publisherKey: "tg_local_demo" });
 const mcp = createMcpAdapter(gate, {
   getCallerId: (_args, extra) => extra?.sessionId ?? "demo-user",
 });
@@ -365,8 +351,8 @@ mcp.paidTool("premium_search", {
       <div class="wrap">
         <h2>Docs</h2>
         <div class="grid">
-          <a class="card" href="https://github.com/tkorkmazeth/toolgate#readme"><h3>README</h3><p>Install, minimal usage, MCP usage, and status.</p></a>
-          <a class="card" href="#mcp"><h3>MCP wrapper</h3><p>Wrap an MCP tool and read `_meta.toolgate` metadata.</p></a>
+          <a class="card" href="https://github.com/niceberginc/tollgate#readme"><h3>README</h3><p>Install, minimal usage, MCP usage, and status.</p></a>
+          <a class="card" href="#mcp"><h3>MCP wrapper</h3><p>Wrap an MCP tool and read `_meta.tollgate` metadata.</p></a>
           <a class="card" href="#repo-demo"><h3>Local example</h3><p>Run the in-memory demo with no external services.</p></a>
         </div>
       </div>
@@ -375,18 +361,18 @@ mcp.paidTool("premium_search", {
 
   <footer>
     <div class="wrap footer-inner">
-      <div>Toolgate · MIT · v0.3.0-beta.0</div>
+      <div>Tollgate · MIT · v0.3.0-beta.0</div>
       <div class="links" style="display:flex">
-        <a href="https://github.com/tkorkmazeth/toolgate">GitHub</a>
-        <a href="https://www.npmjs.com/package/@tkorkmaz/toolgate">npm</a>
-        <a href="mailto:talha.korkmazeth@gmail.com">talha.korkmazeth@gmail.com</a>
+        <a href="https://github.com/niceberginc/tollgate">GitHub</a>
+        <a href="https://www.npmjs.com/package/@niceberglabs/tollgate">npm</a>
+        <a href="mailto:hello@niceberglabs.com">hello@niceberglabs.com</a>
       </div>
     </div>
   </footer>
 
   <script>
     function copyInstall(button) {
-      navigator.clipboard.writeText('npm install @tkorkmaz/toolgate');
+      navigator.clipboard.writeText('npm install @niceberglabs/tollgate');
       const label = button.querySelector('.copy');
       const original = label.textContent;
       label.textContent = 'copied';

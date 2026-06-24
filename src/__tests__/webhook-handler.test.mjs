@@ -5,7 +5,7 @@
  * 1. Valid checkout.session.completed → ledger credited
  * 2. Duplicate event → de-duplicated (no double credit)
  * 3. Invalid signature → returns error (not throws)
- * 4. Missing Toolgate metadata → skipped safely
+ * 4. Missing Tollgate metadata → skipped safely
  * 5. Payment status not "paid" → skipped safely
  * 6. Invalid amount in metadata → error returned
  * 7. Ledger credit failure → error returned
@@ -104,15 +104,15 @@ class WebhookHandler {
     const { metadata } = session;
 
     if (
-      !metadata?.toolgate_caller_id ||
-      !metadata?.toolgate_publisher_id ||
-      !metadata?.toolgate_amount_cents ||
-      !metadata?.toolgate_currency
+      !metadata?.tollgate_caller_id ||
+      !metadata?.tollgate_publisher_id ||
+      !metadata?.tollgate_amount_cents ||
+      !metadata?.tollgate_currency
     ) {
       return {
         processed: false,
         eventType: event.type,
-        error: "Missing Toolgate metadata in checkout session — skipping",
+        error: "Missing Tollgate metadata in checkout session — skipping",
       };
     }
 
@@ -124,14 +124,14 @@ class WebhookHandler {
       };
     }
 
-    const callerId = metadata.toolgate_caller_id;
-    const amountCents = parseInt(metadata.toolgate_amount_cents, 10);
+    const callerId = metadata.tollgate_caller_id;
+    const amountCents = parseInt(metadata.tollgate_amount_cents, 10);
 
     if (isNaN(amountCents) || amountCents <= 0) {
       return {
         processed: false,
         eventType: event.type,
-        error: `Invalid amount in metadata: ${metadata.toolgate_amount_cents}`,
+        error: `Invalid amount in metadata: ${metadata.tollgate_amount_cents}`,
       };
     }
 
@@ -186,10 +186,10 @@ function makeCheckoutEvent(overrides = {}) {
         id: "cs_test_session_1",
         payment_status: "paid",
         metadata: {
-          toolgate_caller_id: "user-abc",
-          toolgate_publisher_id: "tg_pub_xyz",
-          toolgate_amount_cents: "500",
-          toolgate_currency: "usd",
+          tollgate_caller_id: "user-abc",
+          tollgate_publisher_id: "tg_pub_xyz",
+          tollgate_amount_cents: "500",
+          tollgate_currency: "usd",
         },
         ...overrides,
       },
@@ -267,7 +267,7 @@ describe("WebhookHandler — checkout.session.completed", () => {
     assert.equal(ledger.credits.length, 0); // no credit happened
   });
 
-  it("skips events missing Toolgate metadata", async () => {
+  it("skips events missing Tollgate metadata", async () => {
     const ledger = new InMemoryLedger();
     const event = {
       id: "evt_foreign",
@@ -276,7 +276,7 @@ describe("WebhookHandler — checkout.session.completed", () => {
         object: {
           id: "cs_foreign",
           payment_status: "paid",
-          metadata: {}, // no toolgate_ fields
+          metadata: {}, // no tollgate_ fields
         },
       },
     };
@@ -290,7 +290,7 @@ describe("WebhookHandler — checkout.session.completed", () => {
     const result = await handler.handle("x", "sig");
 
     assert.equal(result.processed, false);
-    assert.ok(result.error?.includes("Missing Toolgate metadata"));
+    assert.ok(result.error?.includes("Missing Tollgate metadata"));
     assert.equal(ledger.credits.length, 0);
   });
 
@@ -315,10 +315,10 @@ describe("WebhookHandler — checkout.session.completed", () => {
     const ledger = new InMemoryLedger();
     const event = makeCheckoutEvent({
       metadata: {
-        toolgate_caller_id: "user-x",
-        toolgate_publisher_id: "pub-x",
-        toolgate_amount_cents: "not-a-number",
-        toolgate_currency: "usd",
+        tollgate_caller_id: "user-x",
+        tollgate_publisher_id: "pub-x",
+        tollgate_amount_cents: "not-a-number",
+        tollgate_currency: "usd",
       },
     });
     const stripe = makeMockStripe(true, event);
@@ -360,10 +360,10 @@ describe("WebhookHandler — checkout.session.completed", () => {
     const ledger = new InMemoryLedger();
     const event = makeCheckoutEvent({
       metadata: {
-        toolgate_caller_id: "caller-x",
-        toolgate_publisher_id: "pub-x",
-        toolgate_amount_cents: "1000",
-        toolgate_currency: "usd",
+        tollgate_caller_id: "caller-x",
+        tollgate_publisher_id: "pub-x",
+        tollgate_amount_cents: "1000",
+        tollgate_currency: "usd",
       },
     });
     const stripe = makeMockStripe(true, event);

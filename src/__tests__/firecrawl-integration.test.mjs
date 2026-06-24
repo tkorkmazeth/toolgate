@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { ToolGate, createMcpAdapter, usd } from "../../dist/index.js";
+import { TollGate, createMcpAdapter, usd } from "../../dist/index.js";
 import {
   createFakeFirecrawlTransport,
   createFirecrawlFallbackResult,
@@ -8,7 +8,7 @@ import {
   createFirecrawlPremiumResult,
   firecrawlScrapeInputSchema,
   normalizeFirecrawlUrl,
-} from "../../integrations/firecrawl-mcp-toolgate/index.mjs";
+} from "../../integrations/firecrawl-mcp-tollgate/index.mjs";
 
 const callerId = "firecrawl-test-agent";
 
@@ -102,7 +102,7 @@ describe("Firecrawl idempotency", () => {
 
 describe("Firecrawl MCP adapter path", () => {
   it("marks fallback traces with no charge and avoids transport calls", async () => {
-    const gate = new ToolGate({
+    const gate = new TollGate({
       publisherKey: "tg_firecrawl_test",
       paymentRails: ["stripe"],
     });
@@ -124,7 +124,7 @@ describe("Firecrawl MCP adapter path", () => {
     );
 
     assert.equal(result.isError, false);
-    assert.equal(result._meta.toolgate.isFallback, true);
+    assert.equal(result._meta.tollgate.isFallback, true);
     assert.equal(parseMcpPayload(result).mode, "fallback");
     assert.equal(trace?.fallbackUsed, true);
     assert.equal(trace?.chargeStatus, "none");
@@ -133,7 +133,7 @@ describe("Firecrawl MCP adapter path", () => {
   });
 
   it("replays duplicates through MCP without re-calling Firecrawl", async () => {
-    const gate = new ToolGate({
+    const gate = new TollGate({
       publisherKey: "tg_firecrawl_test",
       paymentRails: ["stripe"],
     });

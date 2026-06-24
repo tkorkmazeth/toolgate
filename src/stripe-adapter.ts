@@ -14,7 +14,7 @@ export interface StripeAdapterConfig {
   platformFeePercent?: number;
   /**
    * Base URL for the top-up Checkout success/cancel pages.
-   * e.g. "https://pay.toolgate.dev"
+   * e.g. "https://pay.tollgate.dev"
    */
   topUpBaseUrl?: string;
 }
@@ -56,7 +56,7 @@ export class StripeAdapter {
   constructor(config: StripeAdapterConfig) {
     this.config = {
       platformFeePercent: 0.1,
-      topUpBaseUrl: "https://pay.toolgate.dev",
+      topUpBaseUrl: "https://pay.tollgate.dev",
       ...config,
     };
   }
@@ -90,11 +90,11 @@ export class StripeAdapter {
 
   /**
    * Create a Stripe Checkout session so a caller can top up their
-   * Toolgate balance. On payment completion Stripe fires a webhook
+   * Tollgate balance. On payment completion Stripe fires a webhook
    * that credits the ledger (handled by WebhookHandler).
    *
-   * @param callerId   Toolgate caller identifier (credited on success)
-   * @param publisherId Toolgate publisher key (for Connect routing)
+   * @param callerId   Tollgate caller identifier (credited on success)
+   * @param publisherId Tollgate publisher key (for Connect routing)
    * @param amountCents Amount in cents (100 | 500 | 1000 | 2500)
    * @param currency    ISO 4217 lowercase (default "usd")
    */
@@ -117,18 +117,18 @@ export class StripeAdapter {
             currency,
             unit_amount: amountCents,
             product_data: {
-              name: "Toolgate Balance Top-Up",
-              description: `$${(amountCents / 100).toFixed(2)} added to your Toolgate balance`,
+              name: "Tollgate Balance Top-Up",
+              description: `$${(amountCents / 100).toFixed(2)} added to your Tollgate balance`,
             },
           },
           quantity: 1,
         },
       ],
       metadata: {
-        toolgate_caller_id: callerId,
-        toolgate_publisher_id: publisherId,
-        toolgate_amount_cents: String(amountCents),
-        toolgate_currency: currency,
+        tollgate_caller_id: callerId,
+        tollgate_publisher_id: publisherId,
+        tollgate_amount_cents: String(amountCents),
+        tollgate_currency: currency,
       },
       success_url: `${baseUrl}/topup/success?session_id={CHECKOUT_SESSION_ID}&caller=${encodeURIComponent(callerId)}`,
       cancel_url: `${baseUrl}/topup/cancel?caller=${encodeURIComponent(callerId)}`,
@@ -238,9 +238,9 @@ export class StripeAdapter {
       currency,
       destination: connectedAccountId,
       metadata: {
-        toolgate_gross_cents: String(grossAmountCents),
-        toolgate_platform_fee_cents: String(platformFeeCents),
-        toolgate_fee_percent: String(this.config.platformFeePercent),
+        tollgate_gross_cents: String(grossAmountCents),
+        tollgate_platform_fee_cents: String(platformFeeCents),
+        tollgate_fee_percent: String(this.config.platformFeePercent),
       },
     });
 

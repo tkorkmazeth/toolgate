@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { ToolGate, createMcpAdapter, usd, toNumber } from "../../dist/index.js";
+import { TollGate, createMcpAdapter, usd, toNumber } from "../../dist/index.js";
 import {
   createFirecrawlFallbackResult,
   createFirecrawlIdempotencyKey,
@@ -14,7 +14,7 @@ const callerId = "firecrawl-live-agent";
 const targetUrl =
   process.env.FIRECRAWL_LIVE_TEST_URL ??
   process.argv[2] ??
-  "https://github.com/tkorkmazeth/toolgate";
+  "https://github.com/niceberginc/tollgate";
 
 function parseMcpPayload(result) {
   const text = result?.content?.find((item) => item.type === "text")?.text;
@@ -54,7 +54,7 @@ function createRegisteredFirecrawlTool({ gate, transport, duplicateKeys }) {
 }
 
 async function runLiveScenario() {
-  const gate = new ToolGate({
+  const gate = new TollGate({
     publisherKey: "tg_firecrawl_live",
     paymentRails: ["stripe"],
   });
@@ -78,7 +78,7 @@ async function runLiveScenario() {
   );
 
   assert.equal(fallbackResult.isError, false);
-  assert.equal(fallbackResult._meta.toolgate.isFallback, true);
+  assert.equal(fallbackResult._meta.tollgate.isFallback, true);
   assert.equal(parseMcpPayload(fallbackResult).mode, "fallback");
   assert.equal(fallbackTrace?.fallbackUsed, true);
   assert.equal(fallbackTrace?.chargeStatus, "none");
@@ -102,7 +102,7 @@ async function runLiveScenario() {
   );
 
   assert.equal(paidResult.isError, false);
-  assert.equal(paidResult._meta.toolgate.isFallback, false);
+  assert.equal(paidResult._meta.tollgate.isFallback, false);
   assert.equal(paidOutput.mode, "premium");
   assert.equal(typeof paidOutput.result?.markdown, "string");
   assert.ok(paidOutput.result.markdown.length > 0);
@@ -130,14 +130,14 @@ async function runLiveScenario() {
   const traces = await gate.traces.toJSON({ toolName: "firecrawl_scrape" });
 
   return {
-    integration: "firecrawl-mcp-toolgate-live",
+    integration: "firecrawl-mcp-tollgate-live",
     targetUrl: paidOutput.url,
     scenarios: [
       {
         name: "payment_missing",
         result: {
           success: !fallbackResult.isError,
-          isFallback: fallbackResult._meta.toolgate.isFallback,
+          isFallback: fallbackResult._meta.tollgate.isFallback,
           mode: parseMcpPayload(fallbackResult).mode,
         },
         trace: summarizeTrace(fallbackTrace),
@@ -179,7 +179,7 @@ try {
     process.stdout.write(
       `${JSON.stringify(
         {
-          integration: "firecrawl-mcp-toolgate-live",
+          integration: "firecrawl-mcp-tollgate-live",
           blocked: true,
           blocker: {
             reason: "missing_env",

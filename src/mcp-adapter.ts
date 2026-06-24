@@ -1,4 +1,4 @@
-import type { ToolGate } from "./toolgate.js";
+import type { TollGate } from "./tollgate.js";
 import { usd } from "./money.js";
 import type {
   PaidToolConfig,
@@ -36,8 +36,8 @@ export interface McpAdapterConfig {
   defaultCallerId?: string;
 
   /**
-   * Whether to include Toolgate metadata (_meta) in MCP responses.
-   * Agents that understand Toolgate can use this for smarter payment handling.
+   * Whether to include Tollgate metadata (_meta) in MCP responses.
+   * Agents that understand Tollgate can use this for smarter payment handling.
    * Default: true
    */
   includeMeta?: boolean;
@@ -107,11 +107,11 @@ export interface McpPaidToolConfig {
 // ─── MCP Adapter ───────────────────────────────────────────
 
 export class McpAdapter {
-  private gate: ToolGate;
+  private gate: TollGate;
   private config: Required<McpAdapterConfig>;
   private registrations: McpToolRegistration[] = [];
 
-  constructor(gate: ToolGate, config?: McpAdapterConfig) {
+  constructor(gate: TollGate, config?: McpAdapterConfig) {
     this.gate = gate;
     this.config = {
       getCallerId: config?.getCallerId ?? defaultGetCallerId,
@@ -125,7 +125,7 @@ export class McpAdapter {
    * used with server.tool() or registered automatically via .register().
    */
   paidTool(name: string, config: McpPaidToolConfig): McpToolRegistration {
-    // Create the underlying ToolGate paid tool
+    // Create the underlying TollGate paid tool
     const gateTool = this.gate.paidTool({
       name,
       description: config.description,
@@ -134,7 +134,7 @@ export class McpAdapter {
       onPaymentFailed:
         config.onPaymentFailed ?? (config.fallback ? "fallback" : "block"),
 
-      // Wrap MCP handler to match ToolGate's (input, ctx) signature
+      // Wrap MCP handler to match TollGate's (input, ctx) signature
       handler: async (input) => {
         const args = input as Record<string, unknown>;
         return await config.handler(args);
@@ -164,7 +164,7 @@ export class McpAdapter {
       onToolTimeout: config.onToolTimeout,
     });
 
-    // Build the MCP handler that wraps ToolGate execution
+    // Build the MCP handler that wraps TollGate execution
     const mcpHandler = async (
       args: Record<string, unknown>,
       extra: McpCallExtra,
@@ -195,12 +195,12 @@ export class McpAdapter {
         if (mppCredential) {
           proof = { rail: "mpp", mppPaymentHeader: String(mppCredential) };
           traceChallengeId = getString(
-            meta["toolgate.mppChallengeId"] ??
-              (meta.toolgate as Record<string, unknown> | undefined)
+            meta["tollgate.mppChallengeId"] ??
+              (meta.tollgate as Record<string, unknown> | undefined)
                 ?.mppChallengeId,
           );
         } else {
-          const tgMeta = meta.toolgate as Record<string, unknown> | undefined;
+          const tgMeta = meta.tollgate as Record<string, unknown> | undefined;
           if (tgMeta?.x402Payment) {
             const actionId = tgMeta.x402ActionId as string | undefined;
             const paymentRequirements = tgMeta.x402PaymentRequirements as
@@ -254,7 +254,7 @@ export class McpAdapter {
                 name: proof.rail === "mpp" ? "mppx" : "x402-facilitator",
                 correlationId:
                   getString(
-                    (meta.toolgate as Record<string, unknown> | undefined)
+                    (meta.tollgate as Record<string, unknown> | undefined)
                       ?.providerId,
                   ) ?? verification.receiptId,
               };
@@ -379,9 +379,9 @@ export class McpAdapter {
   }
 
   /**
-   * Get the underlying ToolGate instance (for balance management etc).
+   * Get the underlying TollGate instance (for balance management etc).
    */
-  getGate(): ToolGate {
+  getGate(): TollGate {
     return this.gate;
   }
 
@@ -410,7 +410,7 @@ export class McpAdapter {
         ],
         isError: false,
         _meta: this.config.includeMeta
-          ? { toolgate: { costEstimate: est } }
+          ? { tollgate: { costEstimate: est } }
           : undefined,
       };
     }
@@ -424,7 +424,7 @@ export class McpAdapter {
 
       if (this.config.includeMeta) {
         mcpResult._meta = {
-          toolgate: {
+          tollgate: {
             paid: !!result.receipt,
             isFallback: result.isFallback ?? false,
             receipt: result.receipt ?? null,
@@ -462,7 +462,7 @@ export class McpAdapter {
               `Accepted payment methods: ${pr.acceptedRails.join(", ")}`,
               pr.topUpUrl ? `\nTop up balance: ${pr.topUpUrl}` : "",
               ``,
-              `To continue, add funds to your Toolgate balance and retry.`,
+              `To continue, add funds to your Tollgate balance and retry.`,
             ].join("\n"),
           },
         ],
@@ -470,7 +470,7 @@ export class McpAdapter {
         _meta: this.config.includeMeta
           ? (() => {
               const mcpMeta: Record<string, unknown> = {
-                toolgate: {
+                tollgate: {
                   paymentRequired: true,
                   amount: pr.amount,
                   currency: pr.currency,
@@ -486,7 +486,7 @@ export class McpAdapter {
                 )!;
                 mcpMeta["org.paymentauth/challenges"] =
                   mppSettlement.mppChallenge!.challenges;
-                (mcpMeta.toolgate as Record<string, unknown>).mppChallengeId =
+                (mcpMeta.tollgate as Record<string, unknown>).mppChallengeId =
                   mppSettlement.mppChallenge!.challenges[0]?.id ?? null;
               }
               if (
@@ -499,7 +499,7 @@ export class McpAdapter {
                 )!;
                 mcpMeta["x402"] = x402Settlement.x402PaymentRequired;
                 if (x402Settlement.actionId) {
-                  (mcpMeta.toolgate as Record<string, unknown>).x402ActionId =
+                  (mcpMeta.tollgate as Record<string, unknown>).x402ActionId =
                     x402Settlement.actionId;
                 }
               }
@@ -526,7 +526,7 @@ export class McpAdapter {
       isError: true,
       _meta: this.config.includeMeta
         ? {
-            toolgate: {
+            tollgate: {
               error: true,
               metrics: result.metrics
                 ? { durationMs: result.metrics.durationMs }
@@ -698,11 +698,11 @@ function serializeOutput(output: unknown): McpToolResult["content"] {
 // ─── Factory Function ──────────────────────────────────────
 
 /**
- * Create an MCP adapter for a ToolGate instance.
+ * Create an MCP adapter for a TollGate instance.
  *
  * @example
  * ```ts
- * const gate = new ToolGate({ publisherKey: "tg_pub_xxx" });
+ * const gate = new TollGate({ publisherKey: "tg_pub_xxx" });
  * const mcp = createMcpAdapter(gate);
  *
  * const search = mcp.paidTool("premium_search", {
@@ -724,7 +724,7 @@ function serializeOutput(output: unknown): McpToolResult["content"] {
  * ```
  */
 export function createMcpAdapter(
-  gate: ToolGate,
+  gate: TollGate,
   config?: McpAdapterConfig,
 ): McpAdapter {
   return new McpAdapter(gate, config);

@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting a Toolgate issue. For security-sensitive billing or payment verification problems, email talha.korkmazeth@gmail.com instead of filing a public issue.
+        Thanks for reporting a Tollgate issue. For security-sensitive billing or payment verification problems, email hello@niceberglabs.com instead of filing a public issue.
   - type: input
     id: version
     attributes:

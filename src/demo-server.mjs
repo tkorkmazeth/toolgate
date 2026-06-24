@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Toolgate Phase 2 Demo MCP Server
+ * Tollgate Phase 2 Demo MCP Server
  *
  * Showcases all Phase 2 features: idempotency, execution trace, paidAction()
  * alias, refund-on-error recovery, and the full billing lifecycle.
@@ -10,9 +10,9 @@
  * Claude Desktop (~/.claude/claude_desktop_config.json):
  * {
  *   "mcpServers": {
- *     "toolgate-demo": {
+ *     "tollgate-demo": {
  *       "command": "node",
- *       "args": ["/path/to/toolgate-mvp/src/demo-server.mjs"]
+ *       "args": ["/path/to/tollgate-mvp/src/demo-server.mjs"]
  *     }
  *   }
  * }
@@ -161,9 +161,9 @@ class InMemoryTraceStore {
   }
 }
 
-// ─── ToolGate (Phase 2) ───────────────────────────────────
+// ─── TollGate (Phase 2) ───────────────────────────────────
 
-class ToolGate {
+class TollGate {
   constructor(config) {
     this.config = {
       publisherKey: config.publisherKey,
@@ -528,7 +528,7 @@ class ToolGate {
         amount: req,
         currency: this.config.defaultCurrency,
         acceptedRails: this.config.paymentRails,
-        topUpUrl: `https://pay.toolgate.dev/topup?publisher=${this.config.publisherKey}&amount=${Math.ceil(req * 100)}`,
+        topUpUrl: `https://pay.tollgate.dev/topup?publisher=${this.config.publisherKey}&amount=${Math.ceil(req * 100)}`,
       },
     };
   }
@@ -539,14 +539,14 @@ class ToolGate {
 // ═══════════════════════════════════════════════════════════
 
 const SERVER_INFO = {
-  name: "toolgate-demo",
+  name: "tollgate-demo",
   version: "0.1.0",
 };
 
-// ─── Setup ToolGate ──────────────────────────────────────
+// ─── Setup TollGate ──────────────────────────────────────
 
 const ledger = new InMemoryLedger();
-const gate = new ToolGate({
+const gate = new TollGate({
   publisherKey: "tg_demo",
   ledger,
   hooks: {
@@ -821,7 +821,7 @@ tools["view_traces"] = {
 
 // ── Tool 7: Check balance ─────────────────────────────────
 tools["check_balance"] = {
-  description: "Check your Toolgate balance and transaction history. [Free]",
+  description: "Check your Tollgate balance and transaction history. [Free]",
   inputSchema: { type: "object", properties: {} },
   gate: gate.paidTool({
     name: "check_balance",
@@ -864,7 +864,7 @@ tools["check_balance"] = {
 // ── Tool 8: Add balance (demo top-up) ────────────────────
 tools["add_balance"] = {
   description:
-    "Add funds to your Toolgate balance (demo instant credit). [Free]",
+    "Add funds to your Tollgate balance (demo instant credit). [Free]",
   inputSchema: {
     type: "object",
     properties: {
@@ -1067,8 +1067,8 @@ function log(msg) {
   process.stderr.write(`${msg}\n`);
 }
 
-log(`[toolgate-demo] MCP server started (stdio) — Phase 2`);
+log(`[tollgate-demo] MCP server started (stdio) — Phase 2`);
 log(
-  `[toolgate-demo] ${Object.keys(tools).length} tools registered: ${Object.keys(tools).join(", ")}`,
+  `[tollgate-demo] ${Object.keys(tools).length} tools registered: ${Object.keys(tools).join(", ")}`,
 );
-log(`[toolgate-demo] Demo balance: $1.00 for "demo-user"`);
+log(`[tollgate-demo] Demo balance: $1.00 for "demo-user"`);

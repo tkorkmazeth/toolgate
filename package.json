@@ -1,5 +1,5 @@
 {
-  "name": "@tkorkmaz/toolgate",
+  "name": "@niceberglabs/tollgate",
   "version": "0.3.0-beta.0",
   "description": "Paid-action runtime for MCP tools. Execution, billing, recovery, and idempotency for paid AI agent tool calls.",
   "type": "module",
@@ -30,10 +30,10 @@
     "test:scenarios": "npm run scenario:ledger && npm run scenario:mcp-e2e",
     "scenario:ledger": "npm run build && node examples/mcp-ledger-recovery/scenario.mjs",
     "scenario:stripe": "npm run build && node integrations/stripe-test-mode/scenario.mjs",
-    "scenario:firecrawl": "npm run build && node integrations/firecrawl-mcp-toolgate/scenario-fake.mjs",
-    "scenario:firecrawl:fake": "npm run build && node integrations/firecrawl-mcp-toolgate/scenario-fake.mjs",
-    "scenario:firecrawl:live": "npm run build && node integrations/firecrawl-mcp-toolgate/scenario-live.mjs",
-    "scenario:mcp-e2e": "npm run build && node integrations/firecrawl-mcp-toolgate/scenario-mcp-e2e.mjs",
+    "scenario:firecrawl": "npm run build && node integrations/firecrawl-mcp-tollgate/scenario-fake.mjs",
+    "scenario:firecrawl:fake": "npm run build && node integrations/firecrawl-mcp-tollgate/scenario-fake.mjs",
+    "scenario:firecrawl:live": "npm run build && node integrations/firecrawl-mcp-tollgate/scenario-live.mjs",
+    "scenario:mcp-e2e": "npm run build && node integrations/firecrawl-mcp-tollgate/scenario-mcp-e2e.mjs",
     "scenario:mpp": "npm run build && node examples/mcp-mpp-recovery/scenario.mjs",
     "scenario:x402": "npm run build && node examples/mcp-x402-experimental/scenario.mjs",
     "scenario:x402-testnet:challenge": "npm run build && node examples/x402-testnet-recovery/challenge.mjs",
@@ -62,11 +62,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tkorkmazeth/toolgate.git"
+    "url": "git+https://github.com/niceberginc/tollgate.git"
   },
-  "homepage": "https://main.toolgate.pages.dev",
+  "homepage": "https://main.tollgate.pages.dev",
   "bugs": {
-    "url": "https://github.com/tkorkmazeth/toolgate/issues"
+    "url": "https://github.com/niceberginc/tollgate/issues"
   },
   "peerDependencies": {
     "@x402/core": ">=0.1.0",
@@ -94,5 +94,5 @@
     "viem": "^2.52.2",
     "zod": "^3.25.76"
   },
-  "author": "Toolgate <talha.korkmazeth@gmail.com>"
+  "author": "Tollgate <hello@niceberglabs.com>"
 }

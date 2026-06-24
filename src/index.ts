@@ -1,5 +1,5 @@
 // Core SDK
-export { ToolGate } from "./toolgate.js";
+export { TollGate, TollGate as ToolGate } from "./tollgate.js";
 export { InMemoryLedger } from "./ledger.js";
 
 // Phase 1A: Money — integer arithmetic for billing
@@ -73,6 +73,7 @@ export { DbLedger, DB_SCHEMA } from "./db-ledger.js";
 
 // Types
 export type {
+  TollGateConfig,
   ToolGateConfig,
   PaidToolConfig,
   ToolCallResult,

@@ -2,7 +2,7 @@
  * Phase 2 — Execution Trace Tests
  *
  * 1. InMemoryTraceStore unit tests (save/get/getByIdempotencyKey/list/count)
- * 2. ToolGate trace recording (trace created per call, events, chargeStatus)
+ * 2. TollGate trace recording (trace created per call, events, chargeStatus)
  *
  * Run: node --test src/__tests__/trace.test.mjs
  */
@@ -131,9 +131,9 @@ function makeTraceId() {
   return `tg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// ─── Minimal ToolGate with trace ─────────────────────────
+// ─── Minimal TollGate with trace ─────────────────────────
 
-class ToolGate {
+class TollGate {
   constructor(config) {
     this.ledger = config.ledger ?? new InMemoryLedger();
     this.idempotencyStore =
@@ -518,14 +518,14 @@ describe("InMemoryTraceStore", () => {
   });
 });
 
-// ─── Tests: ToolGate trace integration ───────────────────
+// ─── Tests: TollGate trace integration ───────────────────
 
 describe("Execution Trace", () => {
   let ledger, gate;
 
   beforeEach(() => {
     ledger = new InMemoryLedger();
-    gate = new ToolGate({ ledger, publisherKey: "tg_test" });
+    gate = new TollGate({ ledger, publisherKey: "tg_test" });
   });
 
   it("gate.traces returns the trace store", () => {

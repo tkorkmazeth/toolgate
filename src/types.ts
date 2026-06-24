@@ -3,7 +3,7 @@ export type { Money, TransactionId, PriceInput } from "./money.js";
 
 // ─── Core Types ────────────────────────────────────────────
 
-export interface ToolGateConfig {
+export interface TollGateConfig {
   publisherKey: string;
   /** Payment rails to accept. Default: ["stripe"] */
   paymentRails?: PaymentRail[];
@@ -22,8 +22,8 @@ export interface ToolGateConfig {
    * The SDK appends `?publisher=...&caller=...&amount=...` to this URL.
    * Must expose a GET endpoint that creates a Stripe Checkout and redirects.
    *
-   * Self-hosting: set `TOOLGATE_TOPUP_URL` env var or pass this option.
-   * Defaults to the Toolgate hosted API (https://toolgate-api.talha-korkmazeth.workers.dev/pay).
+   * Self-hosting: set `TOLLGATE_TOPUP_URL` env var or pass this option.
+   * Defaults to the Tollgate hosted API (https://tollgate-api.talha-korkmazeth.workers.dev/pay).
    */
   topUpBaseUrl?: string;
   /** Idempotency store for duplicate request handling. Default: InMemoryIdempotencyStore */
@@ -47,6 +47,9 @@ export interface ToolGateConfig {
    */
   waitForInProgressMs?: number;
 }
+
+/** @deprecated Use TollGateConfig. */
+export type ToolGateConfig = TollGateConfig;
 
 export type PaymentRail = "stripe" | "x402" | "mpp";
 
@@ -553,7 +556,7 @@ export type FailureClass =
 
 // ─── Recovery Actions ──────────────────────────────────────
 //
-// What Toolgate does in response to a failure or policy decision.
+// What Tollgate does in response to a failure or policy decision.
 // Superset of the existing PolicyDecision type.
 
 export type RecoveryAction =

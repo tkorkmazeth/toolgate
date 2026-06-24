@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * Toolgate Demo MCP Server v2 — Phase 2 Showcase
+ * Tollgate Demo MCP Server v2 — Phase 2 Showcase
  *
- * Demonstrates ALL Toolgate features including Phase 2:
+ * Demonstrates ALL Tollgate features including Phase 2:
  *   - Paid tools with static, dynamic, and tiered pricing
  *   - Graceful fallback on insufficient balance
  *   - ExecutionPolicy (programmatic per-call decisions)
@@ -15,9 +15,9 @@
  * Setup in Claude Desktop config:
  * {
  *   "mcpServers": {
- *     "toolgate-demo": {
+ *     "tollgate-demo": {
  *       "command": "node",
- *       "args": ["/path/to/toolgate-mvp/src/demo-server-v2.mjs"]
+ *       "args": ["/path/to/tollgate-mvp/src/demo-server-v2.mjs"]
  *     }
  *   }
  * }
@@ -98,7 +98,7 @@ function hashSync(input) {
 
 function genCallId() { return `tg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`; }
 
-class ToolGate {
+class TollGate {
   constructor(config) {
     this.config = {
       publisherKey: config.publisherKey,
@@ -296,7 +296,7 @@ class ToolGate {
   _payFail(tool, input, ctx, req) {
     return {
       success: false,
-      paymentRequired: { status: 402, error: "payment_required", tool: tool.name, amount: req, currency: this.config.defaultCurrency, acceptedRails: this.config.paymentRails, topUpUrl: `https://pay.toolgate.dev/topup?publisher=${this.config.publisherKey}&amount=${Math.ceil(req * 100)}` },
+      paymentRequired: { status: 402, error: "payment_required", tool: tool.name, amount: req, currency: this.config.defaultCurrency, acceptedRails: this.config.paymentRails, topUpUrl: `https://pay.tollgate.dev/topup?publisher=${this.config.publisherKey}&amount=${Math.ceil(req * 100)}` },
     };
   }
 }
@@ -306,7 +306,7 @@ class ToolGate {
 // ═══════════════════════════════════════════════════════════
 
 const ledger = new InMemoryLedger();
-const gate = new ToolGate({
+const gate = new TollGate({
   publisherKey: "tg_demo",
   ledger,
   idempotencyTtlSeconds: 300, // 5 min for demo
@@ -548,7 +548,7 @@ async function handleRequest(req) {
   const { method, params, id } = req;
   switch (method) {
     case "initialize":
-      return { jsonrpc: "2.0", id, result: { protocolVersion: "2024-11-05", serverInfo: { name: "toolgate-demo-v2", version: "0.2.0" }, capabilities: { tools: { listChanged: false } } } };
+      return { jsonrpc: "2.0", id, result: { protocolVersion: "2024-11-05", serverInfo: { name: "tollgate-demo-v2", version: "0.2.0" }, capabilities: { tools: { listChanged: false } } } };
     case "notifications/initialized":
       return null;
     case "tools/list":
@@ -583,9 +583,9 @@ process.stdin.on("data", (chunk) => {
 
 function log(msg) { process.stderr.write(`${msg}\n`); }
 
-log(`[toolgate-demo-v2] MCP server started`);
-log(`[toolgate-demo-v2] 8 tools: ${Object.keys(tools).join(", ")}`);
-log(`[toolgate-demo-v2] Phase 2: idempotency, trace, paidAction(), ExecutionPolicy`);
-log(`[toolgate-demo-v2] Demo balance: $1.00 for "demo-user"`);
-log(`[toolgate-demo-v2] Try: process_invoice twice with same invoiceId → no double-charge`);
-log(`[toolgate-demo-v2] Try: view_traces → see full audit trail of every call`);
+log(`[tollgate-demo-v2] MCP server started`);
+log(`[tollgate-demo-v2] 8 tools: ${Object.keys(tools).join(", ")}`);
+log(`[tollgate-demo-v2] Phase 2: idempotency, trace, paidAction(), ExecutionPolicy`);
+log(`[tollgate-demo-v2] Demo balance: $1.00 for "demo-user"`);
+log(`[tollgate-demo-v2] Try: process_invoice twice with same invoiceId → no double-charge`);
+log(`[tollgate-demo-v2] Try: view_traces → see full audit trail of every call`);

@@ -1,5 +1,5 @@
 /**
- * ToolGate SDK — ExecutionPolicy Tests
+ * TollGate SDK — ExecutionPolicy Tests
  *
  * Tests all policy decision paths:
  * 1. Policy "execute" → normal paid flow
@@ -68,7 +68,7 @@ function currentPeriod(period) {
   return d.toISOString().slice(0, 10);
 }
 
-class ToolGate {
+class TollGate {
   constructor(config) {
     this.config = {
       publisherKey: config.publisherKey,
@@ -76,7 +76,7 @@ class ToolGate {
       paymentRails: config.paymentRails ?? ["stripe"],
       topUpBaseUrl:
         config.topUpBaseUrl ??
-        "https://toolgate-api.talha-korkmazeth.workers.dev/pay",
+        "https://tollgate-api.talha-korkmazeth.workers.dev/pay",
       ledger: config.ledger ?? new InMemoryLedger(),
       hooks: config.hooks,
     };
@@ -356,7 +356,7 @@ describe("ExecutionPolicy", () => {
 
   beforeEach(() => {
     ledger = new InMemoryLedger();
-    gate = new ToolGate({ publisherKey: "tg_test_pub", ledger });
+    gate = new TollGate({ publisherKey: "tg_test_pub", ledger });
   });
 
   // ── 1. Policy "execute" → normal paid flow ──────────────────

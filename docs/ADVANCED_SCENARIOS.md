@@ -100,7 +100,7 @@ npm run scenario:x402-testnet
 
 The flow separates challenge generation from payment proof creation:
 
-- `challenge.mjs` produces the Toolgate-generated x402 challenge.
+- `challenge.mjs` produces the Tollgate-generated x402 challenge.
 - `sign-payload.mjs` produces the x402 client or signer-generated proof.
 - `scenario:x402-testnet` validates verify, settle, duplicate replay, fallback, and recovery behavior.
 
@@ -120,9 +120,9 @@ The flow separates challenge generation from payment proof creation:
 By default, payment-required responses can include a top-up URL. To use your own endpoint:
 
 ```ts
-const gate = new ToolGate({
+const gate = new TollGate({
   publisherKey: "tg_your_key",
-  topUpBaseUrl: "https://api.yourapp.com/toolgate/pay",
+  topUpBaseUrl: "https://api.yourapp.com/tollgate/pay",
 });
 ```
 
@@ -131,7 +131,7 @@ checkout or payment flow.
 
 ## Firecrawl integration
 
-The Firecrawl integration lives in `integrations/firecrawl-mcp-toolgate/`.
+The Firecrawl integration lives in `integrations/firecrawl-mcp-tollgate/`.
 
 - `scenario-fake.mjs`: deterministic regression coverage.
 - `scenario-live.mjs`: live Firecrawl API path.

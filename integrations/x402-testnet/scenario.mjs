@@ -149,7 +149,7 @@ async function runScenario() {
           process.env.X402_FACILITATOR_URL ?? "https://x402.org/facilitator",
         network: process.env.X402_NETWORK_CAIP2 ?? "eip155:84532",
         details:
-          "Toolgate can generate the challenge internally, but this repo still needs a signed x402 proof from the recovery helpers or another client flow. Provide X402_PAYMENT_PROOF_JSON for the main path and optionally X402_PAYMENT_UNCERTAIN_PROOF_JSON for settlement_uncertain.",
+          "Tollgate can generate the challenge internally, but this repo still needs a signed x402 proof from the recovery helpers or another client flow. Provide X402_PAYMENT_PROOF_JSON for the main path and optionally X402_PAYMENT_UNCERTAIN_PROOF_JSON for settlement_uncertain.",
         explicitBlocker:
           "This test validates verify/settle with supplied proofs. It does not sign the client payment payload inline.",
       },
@@ -386,7 +386,7 @@ async function runScenario() {
     partial: !successProof,
     validated: [
       "payment_missing_fallback",
-      "payment_required_through_toolgate",
+      "payment_required_through_tollgate",
       ...(successProof ? ["verify_and_settle", "duplicate_replay"] : []),
       ...(uncertainProof ? ["settlement_uncertain"] : []),
     ],
@@ -420,10 +420,10 @@ async function runScenario() {
         trace: fallbackTrace,
       },
       {
-        name: "payment_required_through_toolgate",
+        name: "payment_required_through_tollgate",
         result: paymentRequiredContent.paymentRequired,
         trace: paymentRequiredTrace,
-        note: "This test generates the Toolgate challenge through the MCP registration. Sign that challenge separately and feed the resulting proof back via X402_PAYMENT_PROOF_JSON.",
+        note: "This test generates the Tollgate challenge through the MCP registration. Sign that challenge separately and feed the resulting proof back via X402_PAYMENT_PROOF_JSON.",
       },
       {
         name: "verify_and_settle",

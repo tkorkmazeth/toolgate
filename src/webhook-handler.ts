@@ -23,7 +23,7 @@ export interface WebhookResult {
  * Responsibilities:
  *  - Verifies the Stripe-Signature header to prevent spoofing.
  *  - De-duplicates events (idempotency) so a retry doesn't double-credit.
- *  - Credits the caller's Toolgate ledger balance on successful top-up.
+ *  - Credits the caller's Tollgate ledger balance on successful top-up.
  *  - Stores connect account status updates (extensible).
  */
 export class WebhookHandler {
@@ -125,19 +125,19 @@ export class WebhookHandler {
   ): Promise<WebhookResult> {
     const { metadata } = session;
 
-    // Validate required Toolgate metadata fields.
+    // Validate required Tollgate metadata fields.
     if (
-      !metadata?.toolgate_caller_id ||
-      !metadata?.toolgate_publisher_id ||
-      !metadata?.toolgate_amount_cents ||
-      !metadata?.toolgate_currency
+      !metadata?.tollgate_caller_id ||
+      !metadata?.tollgate_publisher_id ||
+      !metadata?.tollgate_amount_cents ||
+      !metadata?.tollgate_currency
     ) {
-      // Not a Toolgate checkout — could be another product using the same
+      // Not a Tollgate checkout — could be another product using the same
       // Stripe account. Acknowledge safely without processing.
       return {
         processed: false,
         eventType: event.type,
-        error: "Missing Toolgate metadata in checkout session — skipping",
+        error: "Missing Tollgate metadata in checkout session — skipping",
       };
     }
 
@@ -150,15 +150,15 @@ export class WebhookHandler {
       };
     }
 
-    const callerId = metadata.toolgate_caller_id;
-    const amountCents = parseInt(metadata.toolgate_amount_cents, 10);
-    const currency = metadata.toolgate_currency;
+    const callerId = metadata.tollgate_caller_id;
+    const amountCents = parseInt(metadata.tollgate_amount_cents, 10);
+    const currency = metadata.tollgate_currency;
 
     if (isNaN(amountCents) || amountCents <= 0) {
       return {
         processed: false,
         eventType: event.type,
-        error: `Invalid amount in metadata: ${metadata.toolgate_amount_cents}`,
+        error: `Invalid amount in metadata: ${metadata.tollgate_amount_cents}`,
       };
     }
 

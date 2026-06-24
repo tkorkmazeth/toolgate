@@ -17,7 +17,7 @@ Phase 3 is focused on rail validation plus realistic MCP tool integration.
 ## Idempotency Key Source
 
 - All three examples derive the key from `requestId`
-- MCP adapter passes `idempotencyKey` through to ToolGate so duplicate MCP calls replay the original result instead of re-charging
+- MCP adapter passes `idempotencyKey` through to TollGate so duplicate MCP calls replay the original result instead of re-charging
 - Example format: `<toolName>:<callerId>:<requestId>`
 
 ## Fallback Implementation
@@ -41,7 +41,7 @@ Phase 3 is focused on rail validation plus realistic MCP tool integration.
 ## Rail Assumptions That Broke
 
 - MPP proof verification cannot be modeled as a boolean-only check; the execution path needs the verified amount in context
-- Verifying a rail payment before ToolGate sees idempotency can create a double-credit leak on duplicate calls
+- Verifying a rail payment before TollGate sees idempotency can create a double-credit leak on duplicate calls
 - Rail-backed failures are not the same as prepaid refunds; provisional credits must be reversed on failed or fallback results
 - x402 cannot assume a default facilitator URL
 - x402 verification and settlement are separate states; successful execution does not imply settlement certainty

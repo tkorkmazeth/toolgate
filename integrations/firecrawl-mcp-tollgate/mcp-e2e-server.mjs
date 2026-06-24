@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { ToolGate, createMcpAdapter, usd, toNumber } from "../../dist/index.js";
+import { TollGate, createMcpAdapter, usd, toNumber } from "../../dist/index.js";
 import {
   createFakeFirecrawlTransport,
   createFirecrawlFallbackResult,
@@ -12,7 +12,7 @@ import {
 
 const callerId = "mcp-e2e-client";
 const duplicateKeys = [];
-const gate = new ToolGate({
+const gate = new TollGate({
   publisherKey: "tg_firecrawl_mcp_e2e",
   paymentRails: ["stripe"],
 });
@@ -37,7 +37,7 @@ mcp.paidTool("firecrawl_scrape", {
 });
 
 const server = new McpServer({
-  name: "toolgate-firecrawl-mcp-e2e",
+  name: "tollgate-firecrawl-mcp-e2e",
   version: "1.0.0",
 });
 

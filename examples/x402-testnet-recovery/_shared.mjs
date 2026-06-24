@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  ToolGate,
+  TollGate,
   X402RailAdapter,
   createMcpAdapter,
   usd,
@@ -137,7 +137,7 @@ export function createBlockingRegistration(gate) {
   });
 
   return mcp.paidTool(`${toolName}_blocking`, {
-    description: "x402 testnet Toolgate challenge scenario",
+    description: "x402 testnet Tollgate challenge scenario",
     inputSchema: {
       type: "object",
       properties: {
@@ -169,7 +169,7 @@ export function createRuntime(options = {}) {
     payTo: options.payTo ?? process.env.X402_PAY_TO,
     network,
   });
-  const gate = new ToolGate({
+  const gate = new TollGate({
     publisherKey,
     paymentRails: ["x402"],
     railAdapters: [adapter],
@@ -189,7 +189,7 @@ export function buildProofMeta(proof, facilitatorUrl) {
   const accepted = proof?.payload?.accepted;
 
   return {
-    toolgate: {
+    tollgate: {
       x402ActionId: proof.actionId,
       x402Payment: proof.payload,
       x402PaymentRequirements: accepted,
@@ -199,11 +199,11 @@ export function buildProofMeta(proof, facilitatorUrl) {
 }
 
 export function extractPaymentRequiredDetails(result) {
-  const toolgateMeta = result?._meta?.toolgate;
+  const tollgateMeta = result?._meta?.tollgate;
   const x402Challenge = result?._meta?.x402;
   if (
-    !toolgateMeta?.paymentRequired ||
-    !toolgateMeta?.x402ActionId ||
+    !tollgateMeta?.paymentRequired ||
+    !tollgateMeta?.x402ActionId ||
     !x402Challenge
   ) {
     return null;
@@ -216,7 +216,7 @@ export function extractPaymentRequiredDetails(result) {
       settlements: [
         {
           rail: "x402",
-          actionId: toolgateMeta.x402ActionId,
+          actionId: tollgateMeta.x402ActionId,
           x402PaymentRequired: x402Challenge,
         },
       ],

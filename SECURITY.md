@@ -1,6 +1,6 @@
 # Security Policy
 
-Toolgate handles paid or quota-limited tool-call flows, so security issues can affect billing,
+Tollgate handles paid or quota-limited tool-call flows, so security issues can affect billing,
 trace integrity, and payment recovery behavior.
 
 ## Supported versions
@@ -14,7 +14,7 @@ trace integrity, and payment recovery behavior.
 
 Please do not open a public issue for suspected vulnerabilities.
 
-Email: talha.korkmazeth@gmail.com
+Email: hello@niceberglabs.com
 
 Include:
 

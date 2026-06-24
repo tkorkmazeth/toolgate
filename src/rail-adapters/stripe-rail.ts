@@ -8,7 +8,7 @@ import type {
 
 /**
  * Stripe rail adapter — creates Checkout URLs for balance top-ups.
- * Uses the Toolgate hosted API or a custom topUpBaseUrl.
+ * Uses the Tollgate hosted API or a custom topUpBaseUrl.
  *
  * No additional dependencies needed — just a URL.
  * Payment verification happens via Stripe webhook → WebhookHandler → ledger credit.
@@ -17,7 +17,7 @@ export interface StripeRailConfig {
   /**
    * Base URL for the top-up endpoint.
    * Receives: ?publisher=...&caller=...&amount=... (cents)
-   * Default: Toolgate hosted API.
+   * Default: Tollgate hosted API.
    */
   topUpBaseUrl?: string;
 }
@@ -29,7 +29,7 @@ export class StripeRailAdapter implements RailAdapter {
   constructor(config?: StripeRailConfig) {
     this.topUpBaseUrl =
       config?.topUpBaseUrl ??
-      "https://toolgate-api.talha-korkmazeth.workers.dev/pay";
+      "https://tollgate-api.talha-korkmazeth.workers.dev/pay";
   }
 
   async createChallenge(params: ChallengeParams): Promise<SettlementAction> {

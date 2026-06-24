@@ -1,7 +1,7 @@
 /**
  * Money — integer minor-unit representation for all financial arithmetic.
  *
- * All Toolgate billing uses this type internally. External APIs accept
+ * All Tollgate billing uses this type internally. External APIs accept
  * number | string | Money for ergonomics, but convert immediately.
  *
  * 0.1 + 0.2 = 0.30000000000000004 in IEEE 754.
@@ -159,7 +159,7 @@ export function parsePriceInput(
 
   if (typeof input === "number") {
     console.warn(
-      "[toolgate] Deprecation: price as number will be removed in v1.0. " +
+      "[tollgate] Deprecation: price as number will be removed in v1.0. " +
         `Use usd("${input.toFixed(2)}") or the string form "${input.toFixed(2)}" instead.`,
     );
     return usd(input);
@@ -174,7 +174,7 @@ export function parsePriceInput(
     return money(input.amount, input.currency, decimals);
   }
 
-  throw new Error(`[toolgate] Invalid PriceInput: ${JSON.stringify(input)}`);
+  throw new Error(`[tollgate] Invalid PriceInput: ${JSON.stringify(input)}`);
 }
 
 /**
@@ -239,7 +239,7 @@ function decimalStringToMinorUnits(str: string, decimals: number): bigint {
   } else if (fracStr.length > decimals) {
     // Truncate (don't silently lose money — log a warning)
     console.warn(
-      `[toolgate] Money precision loss: "${str}" has more than ${decimals} decimal places. Truncating.`,
+      `[tollgate] Money precision loss: "${str}" has more than ${decimals} decimal places. Truncating.`,
     );
     fracStr = fracStr.slice(0, decimals);
   }

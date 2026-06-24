@@ -39,7 +39,11 @@ export class TollGate {
   private config: Required<
     Pick<
       TollGateConfig,
-      "publisherKey" | "defaultCurrency" | "paymentRails" | "topUpBaseUrl"
+      | "publisherKey"
+      | "defaultCurrency"
+      | "paymentRails"
+      | "topUpBaseUrl"
+      | "waitForInProgressMs"
     >
   > & {
     ledger: LedgerAdapter;
@@ -73,6 +77,7 @@ export class TollGate {
         config.idempotencyStore ?? new InMemoryIdempotencyStore(),
       traceStore: config.traceStore ?? new InMemoryTraceStore(),
       idempotencyTtlSeconds: config.idempotencyTtlSeconds ?? 3600,
+      waitForInProgressMs: config.waitForInProgressMs ?? 5000,
     };
   }
 
@@ -175,15 +180,17 @@ export class TollGate {
     }
 
     if (claimResult.status === "in_progress") {
-      // Another execution is actively running — block concurrent request
-      return {
-        success: false,
-        output: {
-          error:
-            "Duplicate request: a previous execution is still in progress.",
-          idempotencyKey,
-        },
-      };
+      const completedRecord = await this.waitForCompletedIdempotencyRecord(
+        idempotencyKey,
+      );
+      return this.handleDuplicate(
+        tool,
+        input,
+        callerId,
+        completedRecord ?? claimResult.record,
+        idempotencyKey,
+        completedRecord ? "return_previous_result" : "in_progress_timeout",
+      );
     }
     // status === "claimed" or "failed" → we own it, proceed to execute
 
@@ -756,6 +763,24 @@ export class TollGate {
     // "re_execute": execute fresh (claim will have already reclaimed the key)
     return this.executeTool(tool, input, callerId);
   }
+
+  private async waitForCompletedIdempotencyRecord(
+    key: string,
+  ): Promise<IdempotencyRecord | null> {
+    const timeoutMs = this.config.waitForInProgressMs;
+    if (timeoutMs <= 0) return null;
+
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      await delay(10);
+      const record = await this.config.idempotencyStore.peek(key);
+      if (!record) return null;
+      if (record.status === "completed" || record.status === "failed") {
+        return record;
+      }
+    }
+    return null;
+  }
 }
 
 // ─── Helpers ─────────────────────────────────────────────
@@ -786,6 +811,10 @@ function generateCallId(): string {
   const ts = Date.now().toString(36);
   const rand = Math.random().toString(36).slice(2, 8);
   return `tg_${ts}_${rand}`;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**

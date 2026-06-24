@@ -20,10 +20,10 @@ database (Cloudflare D1, Turso/libsql, SQLite). It uses the same atomic primitiv
 any number of workers collapse to a single owner with no check-then-act race:
 
 ```ts
-import { ToolGate, DbIdempotencyStore } from "@tkorkmaz/toolgate";
+import { TollGate, DbIdempotencyStore } from "@niceberglabs/tollgate";
 
 await DbIdempotencyStore.runMigrations(env.DB); // once, at startup
-const gate = new ToolGate({
+const gate = new TollGate({
   publisherKey,
   idempotencyStore: new DbIdempotencyStore(env.DB),
 });

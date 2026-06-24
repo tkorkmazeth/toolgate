@@ -3,7 +3,7 @@
  *
  * These tests run against the REAL compiled runtime (../../dist/index.js),
  * not an inline re-implementation. They prove the property that separates
- * Toolgate from payment-rail idempotency: N parallel identical calls
+ * Tollgate from payment-rail idempotency: N parallel identical calls
  * collapse into exactly ONE provider call and ONE charge — the rest wait
  * for the in-flight execution and replay its result.
  *
@@ -21,7 +21,7 @@ import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  ToolGate,
+  TollGate,
   InMemoryLedger,
   InMemoryIdempotencyStore,
   DbIdempotencyStore,
@@ -170,7 +170,7 @@ describe("Concurrency: in-memory runtime", () => {
 
   beforeEach(() => {
     ledger = new InMemoryLedger();
-    gate = new ToolGate({
+    gate = new TollGate({
       publisherKey: "tg_test",
       ledger,
       idempotencyStore: new InMemoryIdempotencyStore(),
@@ -362,7 +362,7 @@ describe("Concurrency: durable store end-to-end", () => {
   it("durable idempotency collapses parallel calls to one charge", async () => {
     const ledger = new InMemoryLedger();
     await seed(ledger, "user1", "5.00");
-    const gate = new ToolGate({
+    const gate = new TollGate({
       publisherKey: "tg_test",
       ledger,
       idempotencyStore: new DbIdempotencyStore(new MockDb()),
@@ -380,7 +380,9 @@ describe("Concurrency: durable store end-to-end", () => {
     });
 
     const results = await Promise.all(
-      Array.from({ length: 25 }, () => scrape({ url: "https://x.test" }, "user1")),
+      Array.from({ length: 25 }, () =>
+        scrape({ url: "https://x.test" }, "user1"),
+      ),
     );
 
     assert.equal(handlerCalls, 1, "durable store must dedupe to one call");

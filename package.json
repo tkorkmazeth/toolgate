@@ -1,6 +1,6 @@
 {
   "name": "@niceberglabs/tollgate",
-  "version": "0.3.0-beta.0",
+  "version": "0.3.0-beta.1",
   "description": "Paid-action runtime for MCP tools. Execution, billing, recovery, and idempotency for paid AI agent tool calls.",
   "type": "module",
   "main": "./dist/index.js",

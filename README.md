@@ -89,7 +89,7 @@ See [docs/MCP_QUICKSTART.md](docs/MCP_QUICKSTART.md) for MCP response metadata a
 
 ## Status
 
-Current version: `0.3.0-beta.0`.
+Current version: `0.3.0-beta.1`.
 
 | Area                         | Status                                                          |
 | ---------------------------- | --------------------------------------------------------------- |

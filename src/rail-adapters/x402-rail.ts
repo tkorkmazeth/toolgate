@@ -29,11 +29,27 @@ export interface X402RailConfig {
    */
   network: X402Network;
 
-  /** x402 protocol version. Default: 1. Set to 2 for v2 features (sessions, discovery). */
+  /**
+   * x402 protocol version. Default: 1 for EVM, 2 for Solana (SVM).
+   * The SVM "exact" scheme is defined for x402Version 2, so Solana networks
+   * are forced to v2 unless you override this explicitly.
+   */
   x402Version?: 1 | 2;
 
   /** Payment scheme. Default: "exact" */
   scheme?: string;
+
+  /**
+   * Solana fee payer (base58 pubkey) that co-signs and sponsors the settle
+   * transaction. REQUIRED for Solana/SVM payments: the client builds a
+   * partially-signed SPL transfer and leaves the fee-payer signature empty,
+   * the facilitator fills it in at /settle. Surfaced to the client via
+   * `PaymentRequirements.extra.feePayer`.
+   *
+   * Most facilitators expose their fee payer from `GET /supported`; call
+   * `discoverFeePayer()` to fetch it instead of hardcoding. Ignored for EVM.
+   */
+  feePayer?: string;
 
   /**
    * Facilitator URL for payment verification and settlement.
@@ -106,6 +122,16 @@ export class X402RailAdapter implements RailAdapter {
     this.config = config;
   }
 
+  /** True when this adapter is configured for a Solana/SVM network. */
+  private get isSolana(): boolean {
+    return this.config.network.kind === "solana";
+  }
+
+  /** Resolved x402 protocol version (SVM "exact" scheme requires v2). */
+  private get x402Version(): number {
+    return this.config.x402Version ?? (this.isSolana ? 2 : 1);
+  }
+
   async createChallenge(params: ChallengeParams): Promise<SettlementAction> {
     const decimals = this.config.network.decimals ?? 6;
     const amountAtomic = String(
@@ -118,6 +144,18 @@ export class X402RailAdapter implements RailAdapter {
       this.config.resourceUrl ??
       `toolgate://${params.publisherKey}/${params.toolName}`;
 
+    const extra: Record<string, unknown> = {
+      toolgate_caller_id: params.callerId,
+      toolgate_tool: params.toolName,
+      toolgate_publisher: params.publisherKey,
+    };
+
+    // SVM "exact" requires the facilitator's fee payer so the client can build
+    // a partially-signed transaction that leaves the fee-payer slot empty.
+    if (this.isSolana && this.config.feePayer) {
+      extra.feePayer = this.config.feePayer;
+    }
+
     const paymentRequirement: X402PaymentRequirement = {
       scheme: this.config.scheme ?? "exact",
       network: this.config.network.caip2,
@@ -127,11 +165,7 @@ export class X402RailAdapter implements RailAdapter {
       payTo: this.config.payTo,
       asset: this.getAssetAddress(),
       maxTimeoutSeconds: timeout,
-      extra: {
-        toolgate_caller_id: params.callerId,
-        toolgate_tool: params.toolName,
-        toolgate_publisher: params.publisherKey,
-      },
+      extra,
     };
 
     // Store for later verify/settle
@@ -152,7 +186,7 @@ export class X402RailAdapter implements RailAdapter {
       rail: "x402",
       actionId,
       x402PaymentRequired: {
-        x402Version: this.config.x402Version ?? 1,
+        x402Version: this.x402Version,
         accepts: [paymentRequirement],
       },
       expiresAt: Math.floor(Date.now() / 1000) + timeout,
@@ -184,7 +218,7 @@ export class X402RailAdapter implements RailAdapter {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          x402Version: this.config.x402Version ?? 1,
+          x402Version: this.x402Version,
           paymentPayload: proof.x402PaymentPayload,
           paymentRequirements: facilitatorRequirements,
         }),
@@ -239,7 +273,7 @@ export class X402RailAdapter implements RailAdapter {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          x402Version: this.config.x402Version ?? 1,
+          x402Version: this.x402Version,
           paymentPayload: proof.x402PaymentPayload,
           paymentRequirements: facilitatorRequirements,
         }),
@@ -292,7 +326,7 @@ export class X402RailAdapter implements RailAdapter {
   private toFacilitatorPaymentRequirements(
     requirements: X402PaymentRequirement,
   ): Record<string, unknown> {
-    if ((this.config.x402Version ?? 1) >= 2) {
+    if (this.x402Version >= 2) {
       return {
         scheme: requirements.scheme,
         network: requirements.network,
@@ -339,6 +373,46 @@ export class X402RailAdapter implements RailAdapter {
         `Provide network.asset explicitly. ` +
         `Supported auto-detect: ${allNetworks.join(", ")}`,
     );
+  }
+
+  /**
+   * Discover the Solana fee payer from the facilitator's `GET /supported`
+   * endpoint and cache it on this adapter (so subsequent challenges include
+   * `extra.feePayer`). No-op for EVM. Returns the resolved fee payer, or null
+   * if the facilitator does not advertise one for this network.
+   *
+   * The x402 `/supported` response lists payment kinds; SVM entries carry the
+   * fee payer under `extra.feePayer`. We match on the configured caip2 network.
+   */
+  async discoverFeePayer(): Promise<string | null> {
+    if (!this.isSolana) return null;
+    if (this.config.feePayer) return this.config.feePayer;
+
+    try {
+      const response = await fetch(`${this.config.facilitatorUrl}/supported`);
+      if (!response.ok) return null;
+
+      const body = (await response.json()) as {
+        kinds?: Array<{
+          network?: string;
+          extra?: { feePayer?: string };
+        }>;
+      };
+
+      const match = body.kinds?.find(
+        (k) => k.network === this.config.network.caip2 && k.extra?.feePayer,
+      );
+      const feePayer = match?.extra?.feePayer ?? null;
+      if (feePayer) this.config.feePayer = feePayer;
+      return feePayer;
+    } catch {
+      return null;
+    }
+  }
+
+  /** The configured/discovered Solana fee payer, if any. */
+  get feePayer(): string | undefined {
+    return this.config.feePayer;
   }
 
   /** Get pending requirements count (for testing/monitoring) */

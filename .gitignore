@@ -6,3 +6,4 @@ dist/
 
 # Local devnet payer keypair written by examples/x402-solana-recovery/devnet-settle.mjs
 .devnet-payer.json
+.mainnet-payer.json

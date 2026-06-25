@@ -59,11 +59,17 @@ export {
   X402RailAdapter,
   EVM_USDC_ADDRESSES,
   SOLANA_USDC_ADDRESSES,
+  buildSolanaPaymentPayload,
+  extractSolanaRequirement,
 } from "./rail-adapters/index.js";
 export type {
   StripeRailConfig,
   MppRailConfig,
   X402RailConfig,
+  BuildSolanaPaymentInput,
+  BuildSolanaPaymentResult,
+  SolanaPaymentPayload,
+  SolanaPaymentRequirement,
 } from "./rail-adapters/index.js";
 
 // Stripe Integration (Phase 1)

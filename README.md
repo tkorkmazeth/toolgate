@@ -98,7 +98,8 @@ Current version: `0.3.0-beta.1`.
 | SQLite / D1 ledger           | Local and single-process paths                                  |
 | Stripe test mode             | Validated with configured test credentials                      |
 | Stripe production            | Beta; validate your webhook and deployment path                 |
-| x402                         | Experimental                                                    |
+| x402 (EVM)                   | Experimental                                                    |
+| x402 (Solana / SVM)          | Experimental; SVM "exact" scheme, facilitator verify/settle ([notes](examples/x402-solana-recovery/NOTES.md)) |
 | x402 mainnet                 | Not tested                                                      |
 | MPP                          | Mocked / spec-path unless verified with real `mppx` integration |
 | Multi-instance production    | Requires durable idempotency; future work                       |

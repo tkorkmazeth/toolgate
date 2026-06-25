@@ -48,8 +48,10 @@ fail to settle on-chain. Toolgate's recovery/trace layer makes that
 
 ## Configuring the rail for Solana
 
+Server side — wrap the paid tool and advertise the Solana challenge:
+
 ```ts
-import { X402RailAdapter } from "@tkorkmaz/toolgate";
+import { X402RailAdapter } from "@niceberglabs/tollgate";
 
 const rail = new X402RailAdapter({
   payTo: "GsbwXfJraMomNxBcjYLcG3mxkBUiyWXAB32fGbSMQRdW", // base58
@@ -58,6 +60,20 @@ const rail = new X402RailAdapter({
   // feePayer: "...",            // hardcode, or:
 });
 await rail.discoverFeePayer();   // pulls extra.feePayer from /supported
+```
+
+Client side — the signer ships in the package (install `@solana/web3.js` and
+`@solana/spl-token` to use it):
+
+```ts
+import { buildSolanaPaymentPayload } from "@niceberglabs/tollgate";
+
+const { paymentPayload } = await buildSolanaPaymentPayload({
+  challenge,                  // the 402 / x402PaymentRequired block
+  payerSecretKey,             // 64-byte Uint8Array
+  rpcUrl: "https://api.devnet.solana.com",
+});
+// retry the tool call with paymentPayload as the x402 proof
 ```
 
 ### Facilitators that support Solana
@@ -112,6 +128,11 @@ fixes were entirely client-side in the signer.
 - `src/__tests__/x402-solana-sign.test.mjs` — offline signer: asserts the
   produced payload is x402 v2, the fee-payer slot is empty (partial sign), and
   the serialized tx carries the 4 expected instructions.
+- `src/__tests__/x402-solana-e2e.test.mjs` — full lifecycle through the MCP
+  adapter against a fake in-process facilitator: 402 discovery → sign → verify →
+  credit → execute → settle, asserting the trace records `rail_payment_verified`
+  and `rail_payment_settled` with the on-chain tx signature.
 
-`@solana/web3.js` and `@solana/spl-token` are needed only for the client-side
-signer (dynamically imported, dev-only) — the core SDK install stays light.
+`@solana/web3.js` and `@solana/spl-token` are optional peer dependencies, needed
+only for the client-side signer (`buildSolanaPaymentPayload`, dynamically
+imported) — the core SDK install stays light for callers that never sign on Solana.

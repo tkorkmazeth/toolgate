@@ -10,3 +10,14 @@ export {
   SOLANA_USDC_ADDRESSES,
 } from "./x402-rail.js";
 export type { X402RailConfig } from "./x402-rail.js";
+
+export {
+  buildSolanaPaymentPayload,
+  extractSolanaRequirement,
+} from "./x402-solana-signer.js";
+export type {
+  BuildSolanaPaymentInput,
+  BuildSolanaPaymentResult,
+  SolanaPaymentPayload,
+  SolanaPaymentRequirement,
+} from "./x402-solana-signer.js";

@@ -24,6 +24,7 @@
       --warn: #fbbf24;
       --bad: #fb7185;
       --good: #86efac;
+      --solana: #9b6dff;
     }
 
     * { box-sizing: border-box; }
@@ -65,7 +66,7 @@
       grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
       gap: 56px;
       align-items: center;
-      padding: 84px 0 96px;
+      padding: 84px 0 32px;
     }
     h1 {
       margin: 0 0 18px;
@@ -151,6 +152,40 @@
     .tag.good { color: var(--good); border-color: rgba(134, 239, 172, 0.28); background: rgba(134, 239, 172, 0.08); }
     .tag.warn { color: var(--warn); border-color: rgba(251, 191, 36, 0.28); background: rgba(251, 191, 36, 0.08); }
     .tag.bad { color: var(--bad); border-color: rgba(251, 113, 133, 0.28); background: rgba(251, 113, 133, 0.08); }
+
+    /* Supported-rails strip (hero) + rail pills */
+    .rails { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 72px; }
+    .rails-label { color: var(--muted); font-size: 13px; margin-right: 2px; }
+    .rail {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 9px; border-radius: 999px;
+      border: 1px solid var(--line); background: var(--panel);
+      color: var(--text); font-size: 12.5px; font-weight: 550; white-space: nowrap;
+    }
+    .rail .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--muted); }
+    .rail.is-solana { border-color: rgba(155, 109, 255, 0.45); background: rgba(155, 109, 255, 0.10); }
+    .rail.is-solana .dot { background: var(--solana); }
+    .rail .new {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+      color: var(--solana); border: 1px solid rgba(155, 109, 255, 0.45);
+      border-radius: 5px; padding: 1px 5px;
+    }
+
+    /* Rails / networks detail grid */
+    .card.highlight {
+      border-color: rgba(155, 109, 255, 0.45);
+      background: linear-gradient(180deg, rgba(155, 109, 255, 0.10), rgba(18, 22, 28, 0.74));
+    }
+    .card .kicker {
+      display: inline-block; margin-bottom: 8px; font-size: 11px; font-weight: 700;
+      letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted);
+    }
+    .card.highlight .kicker { color: var(--solana); }
+    .card ul { margin: 10px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
+    .card ul li { margin: 4px 0; }
+    .card .proof { display: inline-block; margin-top: 12px; font-size: 12px; color: var(--accent); }
+    .tag.solana { color: var(--solana); border-color: rgba(155, 109, 255, 0.28); background: rgba(155, 109, 255, 0.08); }
+
     section { padding: 70px 0; border-top: 1px solid var(--line); }
     h2 { margin: 0 0 12px; font-size: 30px; letter-spacing: 0; }
     .section-lede { margin: 0 0 34px; color: var(--muted); max-width: 720px; }
@@ -195,6 +230,7 @@
     <nav class="links" aria-label="Primary navigation">
       <a href="#features">Features</a>
       <a href="#usage">Usage</a>
+      <a href="#rails">Rails</a>
       <a href="#status">Status</a>
       <a href="https://github.com/niceberginc/tollgate">GitHub</a>
       <a href="https://www.npmjs.com/package/@niceberglabs/tollgate">npm</a>
@@ -202,7 +238,8 @@
   </header>
 
   <main id="top">
-    <div class="wrap hero">
+    <div class="wrap">
+      <div class="hero">
       <div>
         <h1>Reliable paid or quota-limited tool calls.</h1>
         <p class="lede">Tollgate is an open-source runtime for MCP and agent tools. It handles fallback, idempotent retries, metering, recovery, and execution traces so retries and edge cases do not double-charge or hard-fail.</p>
@@ -241,6 +278,16 @@
           </div>
         </div>
       </aside>
+      </div>
+
+      <div class="rails" aria-label="Supported payment rails">
+        <span class="rails-label">Rail-agnostic:</span>
+        <span class="rail"><span class="dot"></span>Prepaid</span>
+        <span class="rail"><span class="dot"></span>Stripe</span>
+        <span class="rail"><span class="dot"></span>x402 · EVM</span>
+        <a class="rail is-solana" href="#rails"><span class="dot"></span>x402 · Solana<span class="new">New</span></a>
+        <span class="rail"><span class="dot"></span>MPP</span>
+      </div>
     </div>
 
     <section id="repo-demo">
@@ -326,6 +373,41 @@ mcp.paidTool("premium_search", {
       </div>
     </section>
 
+    <section id="rails">
+      <div class="wrap">
+        <h2>Payment rails &amp; networks</h2>
+        <p class="section-lede">Tollgate is rail-agnostic: the runtime — fallback, idempotency, recovery, traces — stays identical while the rail is a pluggable adapter. x402 spans EVM and, now, Solana.</p>
+        <div class="grid">
+          <article class="card">
+            <span class="kicker">Stablecoin · HTTP 402</span>
+            <h3>x402 on EVM</h3>
+            <p>USDC micropayments via EIP-3009 <code>transferWithAuthorization</code>, validated and settled through a facilitator.</p>
+            <ul>
+              <li>Base &amp; Base Sepolia</li>
+              <li>Polygon · Arbitrum · Optimism</li>
+              <li>Ethereum mainnet</li>
+            </ul>
+          </article>
+          <article class="card highlight">
+            <span class="kicker">New · SVM exact scheme</span>
+            <h3>x402 on Solana</h3>
+            <p>Gasless: the agent partial-signs an SPL USDC transfer, the facilitator sponsors the fee and settles. Sub-cent, sub-second.</p>
+            <ul>
+              <li>Solana mainnet &amp; devnet</li>
+              <li>Facilitators: PayAI, Coinbase CDP</li>
+              <li>Agent holds zero SOL</li>
+            </ul>
+            <a class="proof" href="https://explorer.solana.com/tx/de6S852jpFTJ1hHLNMBPAaWqrkkMXzjq8XqPbbCf3LD4s1Mm6ZDAU3ah6dxUZueyN19U2FXP58E7CstHGctSncG?cluster=devnet" target="_blank" rel="noopener">Verified on devnet ↗</a>
+          </article>
+          <article class="card">
+            <span class="kicker">Fiat &amp; ledger</span>
+            <h3>Stripe · Prepaid · MPP</h3>
+            <p>Top up with Stripe, run on a local prepaid ledger (in-memory / SQLite / D1), or settle through MPP — same runtime, same traces across every rail.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
     <section id="status">
       <div class="wrap">
         <h2>Status</h2>
@@ -339,7 +421,8 @@ mcp.paidTool("premium_search", {
               <tr><td>SQLite / D1 ledger</td><td>Local and single-process paths</td></tr>
               <tr><td>Stripe test mode</td><td>Validated with configured test credentials</td></tr>
               <tr><td>Stripe production</td><td>Beta; validate your webhook and deployment path</td></tr>
-              <tr><td>x402</td><td>Experimental; mainnet not tested</td></tr>
+              <tr><td>x402 — EVM (Base, Polygon, Arbitrum, Optimism, Ethereum)</td><td>Experimental; mainnet not tested</td></tr>
+              <tr><td>x402 — Solana / SVM</td><td>Experimental; verified on devnet (gasless via x402 facilitators), mainnet not tested</td></tr>
               <tr><td>MPP</td><td>Mocked / spec-path unless verified with real mppx integration</td></tr>
             </tbody>
           </table>
@@ -354,6 +437,7 @@ mcp.paidTool("premium_search", {
           <a class="card" href="https://github.com/niceberginc/tollgate#readme"><h3>README</h3><p>Install, minimal usage, MCP usage, and status.</p></a>
           <a class="card" href="#mcp"><h3>MCP wrapper</h3><p>Wrap an MCP tool and read `_meta.tollgate` metadata.</p></a>
           <a class="card" href="#repo-demo"><h3>Local example</h3><p>Run the in-memory demo with no external services.</p></a>
+          <a class="card" href="https://github.com/niceberginc/tollgate/blob/main/examples/x402-solana-recovery/NOTES.md"><h3>x402 on Solana</h3><p>SVM "exact" scheme, gasless settle, and the devnet-verified flow.</p></a>
         </div>
       </div>
     </section>
@@ -361,7 +445,7 @@ mcp.paidTool("premium_search", {
 
   <footer>
     <div class="wrap footer-inner">
-      <div>Tollgate · MIT · v0.3.0-beta.0</div>
+      <div>Tollgate · MIT · v0.3.0-beta.1</div>
       <div class="links" style="display:flex">
         <a href="https://github.com/niceberginc/tollgate">GitHub</a>
         <a href="https://www.npmjs.com/package/@niceberglabs/tollgate">npm</a>

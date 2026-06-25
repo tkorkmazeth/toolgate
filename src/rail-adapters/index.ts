@@ -7,6 +7,7 @@ export type { MppRailConfig } from "./mpp-rail.js";
 export {
   X402RailAdapter,
   EVM_USDC_ADDRESSES,
+  EVM_USDC_EIP712_DOMAINS,
   SOLANA_USDC_ADDRESSES,
 } from "./x402-rail.js";
 export type { X402RailConfig } from "./x402-rail.js";

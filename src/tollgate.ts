@@ -28,6 +28,16 @@ import {
   resolvePriceInput,
 } from "./money.js";
 import { determineRecovery, getCapabilities } from "./recovery.js";
+import {
+  InMemoryPendingSettlementStore,
+  SettlementReconciler,
+} from "./settlement-recovery.js";
+import type {
+  PendingSettlementStore,
+  PendingSettlementInput,
+  SettleRetryOptions,
+  ReconcileResult,
+} from "./settlement-recovery.js";
 import { InMemoryLedger } from "./ledger.js";
 import { InMemoryIdempotencyStore } from "./idempotency.js";
 import { InMemoryTraceStore } from "./trace-store.js";
@@ -52,6 +62,7 @@ export class TollGate {
     paymentMode: PaymentMode;
     idempotencyStore: IdempotencyStore;
     traceStore: TraceStore;
+    pendingSettlementStore: PendingSettlementStore;
     idempotencyTtlSeconds: number;
   };
 
@@ -76,6 +87,8 @@ export class TollGate {
       idempotencyStore:
         config.idempotencyStore ?? new InMemoryIdempotencyStore(),
       traceStore: config.traceStore ?? new InMemoryTraceStore(),
+      pendingSettlementStore:
+        config.pendingSettlementStore ?? new InMemoryPendingSettlementStore(),
       idempotencyTtlSeconds: config.idempotencyTtlSeconds ?? 3600,
       waitForInProgressMs: config.waitForInProgressMs ?? 5000,
     };
@@ -123,6 +136,35 @@ export class TollGate {
   /** Get a specific rail adapter by rail name */
   getRailAdapter(rail: PaymentRail): RailAdapter | undefined {
     return this.config.railAdapters?.find((a) => a.rail === rail);
+  }
+
+  /** Access the pending-settlement store (settlements awaiting reconciliation) */
+  get pendingSettlements(): PendingSettlementStore {
+    return this.config.pendingSettlementStore;
+  }
+
+  /**
+   * Queue a verified-but-unsettled payment for later reconciliation. Called when
+   * settlement fails after execution (settlement_uncertain) so it isn't lost.
+   */
+  async enqueueSettlement(item: PendingSettlementInput): Promise<void> {
+    await this.config.pendingSettlementStore.enqueue(item);
+  }
+
+  /**
+   * Drain the pending-settlement queue: retry each queued settlement through its
+   * rail adapter, removing the ones that settle and keeping the rest for a later
+   * pass. Run this on a timer or after a facilitator outage.
+   */
+  async reconcileSettlements(
+    options?: SettleRetryOptions,
+  ): Promise<ReconcileResult> {
+    const reconciler = new SettlementReconciler(
+      (rail) => this.getRailAdapter(rail),
+      this.config.pendingSettlementStore,
+      options,
+    );
+    return reconciler.reconcileOnce();
   }
 
   /** Access the trace store (for querying execution history) */

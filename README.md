@@ -23,6 +23,7 @@ x402, MPP, wallets, webhooks, hosted APIs, or environment variables.
 - Metering hooks for usage-based tools.
 - Execution traces for paid tool calls.
 - Prepaid recovery when execution fails after charge.
+- Settlement recovery: retry with backoff, a durable (in-memory or SQLite/D1) queue, optional on-chain confirmation, and a scheduled `reconcileSettlements()` loop — uncertain settlements are recovered, never silently lost.
 - Optional Stripe, x402, and MPP rail adapters.
 
 ## Minimal usage
@@ -98,9 +99,9 @@ Current version: `0.3.0-beta.1`.
 | SQLite / D1 ledger           | Local and single-process paths                                  |
 | Stripe test mode             | Validated with configured test credentials                      |
 | Stripe production            | Beta; validate your webhook and deployment path                 |
-| x402 (EVM)                   | Experimental                                                    |
+| x402 (EVM)                   | Beta; EIP-712 USDC domain auto-injected, verified on Base mainnet (gasless via facilitator) |
 | x402 (Solana / SVM)          | Beta; SVM "exact" scheme, packaged signer, full MCP verify/settle e2e, verified on devnet **and mainnet** (gasless) ([notes](examples/x402-solana-recovery/NOTES.md)) |
-| x402 mainnet                 | Not tested                                                      |
+| x402 mainnet                 | Smoke-tested with small live settles: EVM (Base) and Solana     |
 | MPP                          | Mocked / spec-path unless verified with real `mppx` integration |
 | Multi-instance production    | Requires durable idempotency; future work                       |
 

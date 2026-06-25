@@ -52,6 +52,15 @@ export interface X402RailConfig {
   feePayer?: string;
 
   /**
+   * EIP-712 token domain (name + version) for EVM payments, surfaced to the
+   * facilitator via `PaymentRequirements.extra` so it can verify the EIP-3009
+   * signature. Auto-detected from `EVM_USDC_EIP712_DOMAINS` for known USDC
+   * networks; set this only for a non-USDC asset or a custom token. Ignored for
+   * Solana.
+   */
+  eip712Domain?: { name: string; version: string };
+
+  /**
    * Facilitator URL for payment verification and settlement.
    *
    * Known facilitators:
@@ -83,6 +92,25 @@ export const EVM_USDC_ADDRESSES: Record<string, `0x${string}`> = {
   "eip155:137": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", // Polygon
   "eip155:42161": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", // Arbitrum
   "eip155:10": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85", // Optimism
+};
+
+/**
+ * EIP-712 domain (name + version) for USDC on each EVM network. The facilitator
+ * needs this in `PaymentRequirements.extra` to verify the EIP-3009 signature —
+ * without it, verify fails with `invalid_exact_evm_missing_eip712_domain`.
+ * Circle's USDC uses name "USD Coin" v2 on mainnets; Base Sepolia testnet USDC
+ * uses "USDC" v2.
+ */
+export const EVM_USDC_EIP712_DOMAINS: Record<
+  string,
+  { name: string; version: string }
+> = {
+  "eip155:8453": { name: "USD Coin", version: "2" }, // Base mainnet
+  "eip155:84532": { name: "USDC", version: "2" }, // Base Sepolia
+  "eip155:1": { name: "USD Coin", version: "2" }, // Ethereum mainnet
+  "eip155:137": { name: "USD Coin", version: "2" }, // Polygon
+  "eip155:42161": { name: "USD Coin", version: "2" }, // Arbitrum
+  "eip155:10": { name: "USD Coin", version: "2" }, // Optimism
 };
 
 /** USDC mint addresses for Solana networks (SPL Token) */
@@ -154,6 +182,19 @@ export class X402RailAdapter implements RailAdapter {
     // a partially-signed transaction that leaves the fee-payer slot empty.
     if (this.isSolana && this.config.feePayer) {
       extra.feePayer = this.config.feePayer;
+    }
+
+    // EVM "exact" (EIP-3009) requires the token's EIP-712 domain so the
+    // facilitator can verify the authorization signature. Auto-detect for known
+    // USDC networks; otherwise honour an explicitly configured domain.
+    if (!this.isSolana) {
+      const domain =
+        this.config.eip712Domain ??
+        EVM_USDC_EIP712_DOMAINS[this.config.network.caip2];
+      if (domain) {
+        extra.name = domain.name;
+        extra.version = domain.version;
+      }
     }
 
     const paymentRequirement: X402PaymentRequirement = {

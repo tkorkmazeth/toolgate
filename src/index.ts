@@ -49,6 +49,27 @@ export type {
 // Phase 2: Trace store
 export { InMemoryTraceStore } from "./trace-store.js";
 
+// Phase B: Settlement-uncertainty recovery (retry + queue + reconcile)
+export {
+  settleWithRetry,
+  InMemoryPendingSettlementStore,
+  DbPendingSettlementStore,
+  DB_PENDING_SETTLEMENT_SCHEMA,
+  SettlementReconciler,
+  startSettlementReconciler,
+} from "./settlement-recovery.js";
+export type {
+  SettleRetryOptions,
+  SettleAttemptOutcome,
+  PendingSettlement,
+  PendingSettlementInput,
+  PendingSettlementStore,
+  ChainConfirmer,
+  ReconcileResult,
+  ReconcilerOptions,
+  ReconcilerLoopHandle,
+} from "./settlement-recovery.js";
+
 // MCP Adapter
 export { McpAdapter, createMcpAdapter } from "./mcp-adapter.js";
 
@@ -58,6 +79,7 @@ export {
   MppRailAdapter,
   X402RailAdapter,
   EVM_USDC_ADDRESSES,
+  EVM_USDC_EIP712_DOMAINS,
   SOLANA_USDC_ADDRESSES,
   buildSolanaPaymentPayload,
   extractSolanaRequirement,

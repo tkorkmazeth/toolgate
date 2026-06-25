@@ -43,8 +43,12 @@ adds first-class Solana (SVM "exact" scheme) support without a new rail.
    Solana tx signature is surfaced as `SettlementResult.txhash`.
 
 Verify and settle are **independent failure domains**: a payment can verify yet
-fail to settle on-chain. Toolgate's recovery/trace layer makes that
-`settlement_uncertain` state explicit instead of collapsing it into one bit.
+fail to settle on-chain. Tollgate's recovery/trace layer makes that
+`settlement_uncertain` state explicit instead of collapsing it into one bit —
+and **recoverable**: the MCP adapter retries settlement with backoff, then
+queues anything still unconfirmed on the gate's pending-settlement store. A
+later `gate.reconcileSettlements()` pass drains the queue so a transient
+facilitator/RPC outage never silently loses a payment.
 
 ## Configuring the rail for Solana
 

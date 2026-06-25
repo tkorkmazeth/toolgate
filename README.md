@@ -23,7 +23,7 @@ x402, MPP, wallets, webhooks, hosted APIs, or environment variables.
 - Metering hooks for usage-based tools.
 - Execution traces for paid tool calls.
 - Prepaid recovery when execution fails after charge.
-- Settlement recovery: retry, queue, and `reconcileSettlements()` when an on-chain settlement is uncertain after execution — no silently lost payments.
+- Settlement recovery: retry with backoff, a durable (in-memory or SQLite/D1) queue, optional on-chain confirmation, and a scheduled `reconcileSettlements()` loop — uncertain settlements are recovered, never silently lost.
 - Optional Stripe, x402, and MPP rail adapters.
 
 ## Minimal usage

@@ -17,8 +17,11 @@ import {
   usd,
   settleWithRetry,
   InMemoryPendingSettlementStore,
+  DbPendingSettlementStore,
   SettlementReconciler,
+  startSettlementReconciler,
 } from "../../dist/index.js";
+import { tryCreateSqliteClient } from "./_sqlite-client.mjs";
 
 const noSleep = async () => {};
 const SETTLEMENT = {
@@ -204,5 +207,165 @@ describe("recovery loop through TollGate + MCP adapter", () => {
     assert.equal(result.settled[0].settlement.txHash, "0xSETTLED");
     assert.equal(result.remaining, 0);
     assert.equal((await gate.pendingSettlements.list()).length, 0);
+  });
+});
+
+// ─── B+ : on-chain confirmation (two-phase) ───────────────
+
+describe("SettlementReconciler with a ChainConfirmer", () => {
+  it("settles once, awaits confirmation, then dequeues — never re-settling", async () => {
+    const store = new InMemoryPendingSettlementStore();
+    await store.enqueue({ id: "x", rail: "x402", proof: {} });
+
+    const adapter = flakySettler({ failTimes: 0 }); // settles → txHash 0xSETTLED
+    let confirmCalls = 0;
+    const confirmer = {
+      isConfirmed: async () => {
+        confirmCalls++;
+        return confirmCalls >= 2; // not confirmed on first check
+      },
+    };
+    const reconciler = new SettlementReconciler(() => adapter, store, {
+      sleep: noSleep,
+      confirmer,
+    });
+
+    const r1 = await reconciler.reconcileOnce();
+    assert.equal(r1.settled.length, 0);
+    assert.equal(r1.pendingConfirmation.length, 1);
+    assert.equal(r1.remaining, 1);
+    assert.equal(adapter.calls(), 1, "settled exactly once");
+    assert.equal((await store.get("x")).submittedTxHash, "0xSETTLED");
+
+    const r2 = await reconciler.reconcileOnce();
+    assert.equal(r2.settled.length, 1);
+    assert.equal(r2.settled[0].txHash, "0xSETTLED");
+    assert.equal(r2.remaining, 0);
+    assert.equal(
+      adapter.calls(),
+      1,
+      "second pass only confirmed — did NOT re-submit the tx",
+    );
+  });
+});
+
+// ─── B+ : durable SQLite store ────────────────────────────
+
+describe("DbPendingSettlementStore (sqlite)", () => {
+  it("persists with JSON round-trip; update preserves enqueuedAt", async (t) => {
+    const db = await tryCreateSqliteClient();
+    if (!db) {
+      t.skip("better-sqlite3 unavailable");
+      return;
+    }
+    await DbPendingSettlementStore.applySchema(db);
+    const store = new DbPendingSettlementStore(db);
+
+    await store.enqueue({
+      id: "a",
+      rail: "x402",
+      proof: { rail: "x402", x402PaymentPayload: { foo: 1 } },
+      context: { actionId: "act-a" },
+      toolName: "search",
+      callerId: "c1",
+      amount: 0.05,
+    });
+
+    const got = await store.get("a");
+    assert.equal(got.rail, "x402");
+    assert.deepEqual(got.proof, { rail: "x402", x402PaymentPayload: { foo: 1 } });
+    assert.equal(got.context.actionId, "act-a");
+    assert.equal(got.amount, 0.05);
+    const enqueuedAt = got.enqueuedAt;
+
+    await store.update("a", {
+      attempts: 3,
+      submittedTxHash: "0xabc",
+      lastError: "boom",
+    });
+    const updated = await store.get("a");
+    assert.equal(updated.attempts, 3);
+    assert.equal(updated.submittedTxHash, "0xabc");
+    assert.equal(updated.lastError, "boom");
+    assert.equal(updated.enqueuedAt, enqueuedAt, "enqueuedAt preserved");
+
+    await store.enqueue({ id: "b", rail: "x402", proof: {} });
+    assert.equal((await store.list()).length, 2);
+    await store.remove("a");
+    const rest = await store.list();
+    assert.equal(rest.length, 1);
+    assert.equal(rest[0].id, "b");
+  });
+
+  it("reconciles a durable queue end-to-end", async (t) => {
+    const db = await tryCreateSqliteClient();
+    if (!db) {
+      t.skip("better-sqlite3 unavailable");
+      return;
+    }
+    await DbPendingSettlementStore.applySchema(db);
+    const store = new DbPendingSettlementStore(db);
+    await store.enqueue({ id: "q", rail: "x402", proof: {} });
+
+    const adapter = flakySettler({ failTimes: 1 });
+    const reconciler = new SettlementReconciler(() => adapter, store, {
+      retries: 0,
+      sleep: noSleep,
+    });
+
+    const r1 = await reconciler.reconcileOnce(); // 1 attempt, fails → stays
+    assert.equal(r1.remaining, 1);
+    const r2 = await reconciler.reconcileOnce(); // succeeds → dequeued
+    assert.equal(r2.settled.length, 1);
+    assert.equal(r2.remaining, 0);
+  });
+});
+
+// ─── B+ : scheduled loop ──────────────────────────────────
+
+describe("startSettlementReconciler", () => {
+  const empty = {
+    settled: [],
+    pendingConfirmation: [],
+    failures: [],
+    remaining: 0,
+  };
+
+  it("ticks on demand and stops cleanly", async () => {
+    let count = 0;
+    const handle = startSettlementReconciler(
+      async () => {
+        count++;
+        return empty;
+      },
+      { intervalMs: 5 },
+    );
+    await handle.tick();
+    await handle.tick();
+    assert.ok(count >= 2);
+    handle.stop();
+    const after = count;
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(count, after, "no ticks after stop()");
+  });
+
+  it("skips overlapping ticks", async () => {
+    let active = 0;
+    let maxActive = 0;
+    const handle = startSettlementReconciler(
+      async () => {
+        active++;
+        maxActive = Math.max(maxActive, active);
+        await new Promise((r) => setTimeout(r, 10));
+        active--;
+        return empty;
+      },
+      { intervalMs: 1 },
+    );
+    const p1 = handle.tick();
+    const p2 = handle.tick(); // running → skipped (resolves null)
+    await Promise.all([p1, p2]);
+    handle.stop();
+    assert.equal(maxActive, 1, "no overlapping reconcile passes");
   });
 });

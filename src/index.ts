@@ -53,7 +53,10 @@ export { InMemoryTraceStore } from "./trace-store.js";
 export {
   settleWithRetry,
   InMemoryPendingSettlementStore,
+  DbPendingSettlementStore,
+  DB_PENDING_SETTLEMENT_SCHEMA,
   SettlementReconciler,
+  startSettlementReconciler,
 } from "./settlement-recovery.js";
 export type {
   SettleRetryOptions,
@@ -61,7 +64,10 @@ export type {
   PendingSettlement,
   PendingSettlementInput,
   PendingSettlementStore,
+  ChainConfirmer,
   ReconcileResult,
+  ReconcilerOptions,
+  ReconcilerLoopHandle,
 } from "./settlement-recovery.js";
 
 // MCP Adapter

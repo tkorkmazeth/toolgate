@@ -668,8 +668,16 @@ describe("Tollgate SDK", () => {
 
       const result = await tool({}, "agent-1");
       assert.equal(result.success, true);
-      assert.ok(result.receipt.amount >= 0.05); // ~50ms × $0.001
-      assert.ok(result.receipt.amount < 0.15); // shouldn't take > 150ms
+      // The handler sleeps 50ms, so the metered charge must reflect ≥50ms of
+      // work. Only assert the lower bound: a tight upper bound (e.g. <150ms) is
+      // timing-dependent and flakes on slow/loaded CI runners where the real
+      // duration can spike past 150ms (GC, scheduler, cold runner).
+      assert.ok(
+        result.receipt.amount >= 0.05,
+        `expected >= $0.05 for ~50ms of metered work, got ${result.receipt.amount}`,
+      );
+      // Sanity: the charge is derived from actual duration, not a flat fee.
+      assert.equal(result.receipt.amount, result.metrics.durationMs * 0.001);
     });
   });
 

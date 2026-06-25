@@ -49,6 +49,21 @@ export type {
 // Phase 2: Trace store
 export { InMemoryTraceStore } from "./trace-store.js";
 
+// Phase B: Settlement-uncertainty recovery (retry + queue + reconcile)
+export {
+  settleWithRetry,
+  InMemoryPendingSettlementStore,
+  SettlementReconciler,
+} from "./settlement-recovery.js";
+export type {
+  SettleRetryOptions,
+  SettleAttemptOutcome,
+  PendingSettlement,
+  PendingSettlementInput,
+  PendingSettlementStore,
+  ReconcileResult,
+} from "./settlement-recovery.js";
+
 // MCP Adapter
 export { McpAdapter, createMcpAdapter } from "./mcp-adapter.js";
 

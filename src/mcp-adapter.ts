@@ -1,5 +1,7 @@
 import type { TollGate } from "./tollgate.js";
 import { usd } from "./money.js";
+import { settleWithRetry } from "./settlement-recovery.js";
+import type { SettleRetryOptions } from "./settlement-recovery.js";
 import type {
   PaidToolConfig,
   ToolCallResult,
@@ -41,6 +43,13 @@ export interface McpAdapterConfig {
    * Default: true
    */
   includeMeta?: boolean;
+
+  /**
+   * Retry/backoff policy for on-chain settlement after execution. A settlement
+   * that still fails is queued on the gate's pending-settlement store for
+   * `reconcileSettlements()`. Default: 3 retries with exponential backoff.
+   */
+  settleRetry?: SettleRetryOptions;
 }
 
 // ─── MCP Paid Tool Config ──────────────────────────────────
@@ -117,6 +126,7 @@ export class McpAdapter {
       getCallerId: config?.getCallerId ?? defaultGetCallerId,
       defaultCallerId: config?.defaultCallerId ?? "anonymous",
       includeMeta: config?.includeMeta ?? true,
+      settleRetry: config?.settleRetry ?? {},
     };
   }
 
@@ -301,11 +311,16 @@ export class McpAdapter {
         });
       }
 
-      // Settle on-chain after successful execution
+      // Settle on-chain after successful execution — with retry/backoff, and
+      // queue for reconciliation if it still doesn't confirm.
       if (result.success && railAdapter?.settlePayment && railProof) {
-        const settlement = await railAdapter
-          .settlePayment(railProof, verificationContext)
-          .catch(() => null);
+        const { result: settlement, attempts, lastError } =
+          await settleWithRetry(
+            railAdapter,
+            railProof,
+            verificationContext,
+            this.config.settleRetry,
+          );
 
         if (settlement) {
           await this.annotateTrace(idempotencyKey, {
@@ -320,15 +335,31 @@ export class McpAdapter {
               metadata: {
                 receiptId: settlement.receiptId,
                 txHash: settlement.txHash,
+                attempts,
               },
             },
           });
-        } else if (railProof.rail === "x402") {
+        } else {
+          // Verified + executed but unsettled: queue it so a later
+          // reconcileSettlements() pass can retry instead of losing the payment.
+          await this.gate
+            .enqueueSettlement({
+              id: verificationContext?.actionId ?? idempotencyKey,
+              rail: railProof.rail,
+              proof: railProof,
+              context: verificationContext,
+              toolName: name,
+              callerId,
+              amount: verifiedAmount,
+              lastError,
+            })
+            .catch(() => undefined);
           await this.annotateTrace(idempotencyKey, {
             failureClass: "settlement_uncertain",
             event: {
               event: "settlement_uncertain",
-              detail: "x402 facilitator did not confirm settlement",
+              detail: `${railProof.rail} settlement unconfirmed after ${attempts} attempt(s); queued for reconciliation`,
+              metadata: { attempts, lastError, queued: true },
             },
           });
         }

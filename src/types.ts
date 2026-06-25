@@ -31,6 +31,12 @@ export interface TollGateConfig {
   /** Execution trace store. Default: InMemoryTraceStore */
   traceStore?: TraceStore;
   /**
+   * Store for settlements that were verified + executed but failed to settle
+   * on-chain (settlement_uncertain). Drained later via `reconcileSettlements()`.
+   * Default: InMemoryPendingSettlementStore.
+   */
+  pendingSettlementStore?: import("./settlement-recovery.js").PendingSettlementStore;
+  /**
    * Default idempotency TTL in seconds. After this, same key = new execution.
    * Default: 3600 (1 hour).
    */

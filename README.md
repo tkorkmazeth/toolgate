@@ -99,7 +99,7 @@ Current version: `0.3.0-beta.1`.
 | Stripe test mode             | Validated with configured test credentials                      |
 | Stripe production            | Beta; validate your webhook and deployment path                 |
 | x402 (EVM)                   | Experimental                                                    |
-| x402 (Solana / SVM)          | Beta on devnet; SVM "exact" scheme, packaged signer, full MCP verify/settle e2e ([notes](examples/x402-solana-recovery/NOTES.md)). Mainnet not tested |
+| x402 (Solana / SVM)          | Beta; SVM "exact" scheme, packaged signer, full MCP verify/settle e2e, verified on devnet **and mainnet** (gasless) ([notes](examples/x402-solana-recovery/NOTES.md)) |
 | x402 mainnet                 | Not tested                                                      |
 | MPP                          | Mocked / spec-path unless verified with real `mppx` integration |
 | Multi-instance production    | Requires durable idempotency; future work                       |

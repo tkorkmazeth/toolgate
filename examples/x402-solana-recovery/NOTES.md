@@ -97,6 +97,11 @@ node examples/x402-solana-recovery/devnet-settle.mjs
 A confirmed devnet settle (`err: None`) had its **fee paid by the facilitator's
 fee payer, not the client** — the gasless SVM design working as intended.
 
+**Mainnet smoke (real USDC):** the same flow settled on Solana **mainnet-beta**
+via PayAI, self-transfer, `err: None`, fee paid by the facilitator
+(tx `3d9k5PACqnSqYk42xMjyvkdzZZNfDPjysRyHGVzpxxCYu1womD6eMAGQx2neZcNCerLNkbjDoy15Y31pdqysaLTn`).
+Run it with `SOLANA_NETWORK=mainnet` (see `devnet-settle.mjs`).
+
 A real cross-account transfer (set `PAY_TO` to a second funded wallet) moved
 exactly 0.001 USDC payer → recipient on devnet, gas paid by the facilitator:
 payer 20 → 19.999, recipient 20 → 20.001

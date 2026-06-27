@@ -231,6 +231,7 @@
       <a href="#features">Features</a>
       <a href="#usage">Usage</a>
       <a href="#rails">Rails</a>
+      <a href="#recovery">Recovery</a>
       <a href="#status">Status</a>
       <a href="https://github.com/niceberginc/tollgate">GitHub</a>
       <a href="https://www.npmjs.com/package/@niceberglabs/tollgate">npm</a>
@@ -309,7 +310,7 @@
           <article class="card"><h3>Idempotency</h3><p>Replay completed results for duplicate request keys without charging twice.</p></article>
           <article class="card"><h3>Integer money</h3><p>Use minor-unit accounting through `Money`, `usd()`, and ledger adapters.</p></article>
           <article class="card"><h3>Metering</h3><p>Record usage and optionally price after execution based on actual metrics.</p></article>
-          <article class="card"><h3>Recovery</h3><p>Credit back prepaid calls when the handler fails after charge.</p></article>
+          <article class="card"><h3>Recovery</h3><p>Credit back prepaid calls when execution fails — and retry, queue, and reconcile uncertain on-chain settlements. <a href="#recovery" style="color:var(--accent)">More →</a></p></article>
           <article class="card"><h3>Traces</h3><p>Inspect decisions, charge status, fallback usage, handler status, and recovery actions.</p></article>
         </div>
       </div>
@@ -379,17 +380,18 @@ mcp.paidTool("premium_search", {
         <p class="section-lede">Tollgate is rail-agnostic: the runtime — fallback, idempotency, recovery, traces — stays identical while the rail is a pluggable adapter. x402 spans EVM and, now, Solana.</p>
         <div class="grid">
           <article class="card">
-            <span class="kicker">Stablecoin · HTTP 402</span>
+            <span class="kicker">Beta · HTTP 402</span>
             <h3>x402 on EVM</h3>
-            <p>USDC micropayments via EIP-3009 <code>transferWithAuthorization</code>, validated and settled through a facilitator.</p>
+            <p>USDC micropayments via EIP-3009 <code>transferWithAuthorization</code>, validated and settled through a facilitator. Gasless — the facilitator pays gas.</p>
             <ul>
               <li>Base &amp; Base Sepolia</li>
               <li>Polygon · Arbitrum · Optimism</li>
               <li>Ethereum mainnet</li>
             </ul>
+            <a class="proof" href="https://basescan.org/tx/0xc18b14ef94c7ebd5589bf0816f6c8c8820d87e77c4ace5f118486a3f3c2a42f9" target="_blank" rel="noopener">Verified on Base mainnet ↗</a>
           </article>
           <article class="card highlight">
-            <span class="kicker">New · SVM exact scheme</span>
+            <span class="kicker">Beta · SVM exact scheme</span>
             <h3>x402 on Solana</h3>
             <p>Gasless: the agent partial-signs an SPL USDC transfer, the facilitator sponsors the fee and settles. Sub-cent, sub-second.</p>
             <ul>
@@ -397,12 +399,41 @@ mcp.paidTool("premium_search", {
               <li>Facilitators: PayAI, Coinbase CDP</li>
               <li>Agent holds zero SOL</li>
             </ul>
-            <a class="proof" href="https://explorer.solana.com/tx/de6S852jpFTJ1hHLNMBPAaWqrkkMXzjq8XqPbbCf3LD4s1Mm6ZDAU3ah6dxUZueyN19U2FXP58E7CstHGctSncG?cluster=devnet" target="_blank" rel="noopener">Verified on devnet ↗</a>
+            <a class="proof" href="https://explorer.solana.com/tx/3d9k5PACqnSqYk42xMjyvkdzZZNfDPjysRyHGVzpxxCYu1womD6eMAGQx2neZcNCerLNkbjDoy15Y31pdqysaLTn?cluster=mainnet-beta" target="_blank" rel="noopener">Verified on Solana mainnet ↗</a>
           </article>
           <article class="card">
             <span class="kicker">Fiat &amp; ledger</span>
             <h3>Stripe · Prepaid · MPP</h3>
             <p>Top up with Stripe, run on a local prepaid ledger (in-memory / SQLite / D1), or settle through MPP — same runtime, same traces across every rail.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="recovery">
+      <div class="wrap">
+        <h2>Settlement recovery</h2>
+        <p class="section-lede">On-chain rails settle <em>after</em> execution — and settlement can fail on its own (RPC blip, facilitator timeout) while the payment already verified. Tollgate never lets that payment vanish.</p>
+        <div class="grid">
+          <article class="card highlight">
+            <span class="kicker">The hard part</span>
+            <h3>No silently lost payments</h3>
+            <p>Verified, executed, but settlement didn't confirm? Most setups drop it. Tollgate recovers it — and never double-settles a tx that already landed.</p>
+          </article>
+          <article class="card">
+            <span class="kicker">The loop</span>
+            <h3>retry → queue → reconcile</h3>
+            <ul>
+              <li>Retry settlement with backoff</li>
+              <li>Durable queue (in-memory or SQLite/D1)</li>
+              <li>On-chain confirmation before dequeue</li>
+              <li>Scheduled <code>reconcileSettlements()</code></li>
+            </ul>
+          </article>
+          <article class="card">
+            <span class="kicker">Always visible</span>
+            <h3>Every state traced</h3>
+            <p>`settlement_uncertain`, attempts, queued, and final settlement land in the execution trace — partial failure is explicit, never collapsed into one success bit.</p>
           </article>
         </div>
       </div>
@@ -423,6 +454,7 @@ mcp.paidTool("premium_search", {
               <tr><td>Stripe production</td><td>Beta; validate your webhook and deployment path</td></tr>
               <tr><td>x402 — EVM (Base, Polygon, Arbitrum, Optimism, Ethereum)</td><td>Beta; EIP-712 USDC domain auto-injected, verified on Base mainnet (gasless)</td></tr>
               <tr><td>x402 — Solana / SVM</td><td>Beta; packaged signer + full MCP verify/settle e2e, verified on devnet and mainnet (gasless via x402 facilitators)</td></tr>
+              <tr><td>Settlement recovery</td><td>Retry + durable queue + reconcile + on-chain confirmation; in-memory or SQLite/D1</td></tr>
               <tr><td>MPP</td><td>Mocked / spec-path unless verified with real mppx integration</td></tr>
             </tbody>
           </table>
